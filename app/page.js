@@ -13,7 +13,6 @@ const sidebarItems = [
 ];
 
 const quickPaths = [
-  { label: "All collections", value: "" },
   { label: "SS26 / Lookbook", value: "SS26/Lookbook" },
   { label: "SS26 / Campaign", value: "SS26/Campaign" },
   { label: "FW26 / Lookbook", value: "FW26/Lookbook" }
@@ -155,6 +154,12 @@ export default function HomePage() {
   }
 
   async function generateCsv() {
+    if (!subPath.trim()) {
+      setError("Su Vercel il run completo di 02_Collezioni va in timeout. Inserisci almeno una stagione o un tipo, ad esempio SS26/Lookbook.");
+      setResult(null);
+      return;
+    }
+
     setLoading(true);
     setError("");
     setResult(null);
@@ -360,7 +365,7 @@ export default function HomePage() {
                   type="text"
                   value={subPath}
                   onChange={(event) => setSubPath(event.target.value)}
-                  placeholder="es. SS26/Lookbook oppure vuoto per tutto il catalogo"
+                  placeholder="es. SS26/Lookbook"
                   autoComplete="off"
                 />
                 <button className="primary-button" type="submit" disabled={loading}>
@@ -368,7 +373,8 @@ export default function HomePage() {
                 </button>
               </div>
               <p className="input-helper">
-                Scope base fisso: <code>Shared Folder/02_Collezioni</code>
+                Scope base fisso: <code>Shared Folder/02_Collezioni</code>. Su Vercel va
+                lanciato per sotto-percorso.
               </p>
             </form>
 
