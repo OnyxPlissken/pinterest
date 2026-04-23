@@ -9,6 +9,7 @@ export async function POST(request) {
     const preview = await previewPinterestSelection({
       subPaths: body?.subPaths ?? [],
       subPath: body?.subPath ?? "",
+      ruleId: body?.ruleId ?? "",
       origin: request.nextUrl.origin
     });
 

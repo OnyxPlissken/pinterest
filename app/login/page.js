@@ -101,20 +101,17 @@ export default function LoginPage() {
     <main className="auth-shell">
       <section className="auth-frame">
         <div className="auth-panel">
+          <div className="auth-copy">
+            <span className="tag">Area riservata</span>
+            <h1>Accedi alla dashboard</h1>
+          </div>
+
           <div className="auth-brand">
             <div className="brand-mark">I</div>
             <div>
               <div className="brand-title">ISAIA e ISAIA</div>
               <div className="brand-subtitle">Pinterest Assets Management</div>
             </div>
-          </div>
-
-          <div className="auth-copy">
-            <span className="tag">Area riservata</span>
-            <h1>Accedi alla dashboard</h1>
-            <p>
-              Usa le credenziali interne per entrare, generare anteprime e creare i CSV Pinterest.
-            </p>
           </div>
         </div>
 

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { getConfig } from "../../../lib/config";
+import { getAdminState } from "../../../lib/admin-store";
 import { getSessionFromRequest } from "../../../lib/session";
 import { listUsers } from "../../../lib/user-store";
 
@@ -20,10 +20,18 @@ export async function GET(request) {
     );
   }
 
-  const config = getConfig();
+  const adminState = await getAdminState().catch(() => ({
+    rules: [],
+    settings: null,
+    persistent: false,
+    issue: "Storage amministrativo non disponibile.",
+    storageLabel: "Storage non disponibile"
+  }));
   const userStore = await listUsers().catch(() => ({
     users: [],
-    persistent: false
+    persistent: false,
+    issue: "Storage utenti non disponibile.",
+    storageLabel: "Storage non disponibile"
   }));
 
   return NextResponse.json({
@@ -32,18 +40,35 @@ export async function GET(request) {
       currentUser: session,
       usersPersistent: userStore.persistent,
       usersIssue: userStore.issue || "",
-      protectedRoutes: ["/", "/api/explorer", "/api/preview", "/api/generate", "/api/system"],
+      usersStorageLabel: userStore.storageLabel || "",
+      protectedRoutes: [
+        "/",
+        "/api/explorer",
+        "/api/preview",
+        "/api/generate",
+        "/api/system",
+        "/api/rules",
+        "/api/settings"
+      ],
       publicRoutes: ["/login", "/media", "/api/health"]
     },
     settings: {
-      sharePointUrl: `https://${config.sharePoint.hostname}${config.sharePoint.sitePath}`,
-      library: config.sharePoint.driveName,
-      baseFolder: config.sharePoint.baseFolder,
-      titlePrefix: config.pinterest.titlePrefix,
-      descriptionPrefix: config.pinterest.descriptionPrefix,
-      linkUrl: config.pinterest.linkUrl,
-      thumbnailMode: config.pinterest.thumbnailMode,
+      appName: adminState.settings?.appName || "Pinterest Assets Management",
+      sharePointUrl: `https://${process.env.SHAREPOINT_HOSTNAME || "isaia.sharepoint.com"}${process.env.SHAREPOINT_SITE_PATH || "/sites/branding"}`,
+      library: adminState.settings?.sharePoint?.driveName || "",
+      baseFolder: adminState.settings?.sharePoint?.baseFolder || "",
+      titlePrefix: adminState.settings?.pinterest?.titlePrefix || "",
+      descriptionPrefix: adminState.settings?.pinterest?.descriptionPrefix || "",
+      linkUrl: adminState.settings?.pinterest?.linkUrl || "",
+      thumbnailMode: adminState.settings?.pinterest?.thumbnailMode || "blank",
+      defaultRuleId: adminState.settings?.defaultRuleId || "",
       mediaMode: "Proxy live da SharePoint, nessun Vercel Blob"
+    },
+    rules: adminState.rules,
+    adminStore: {
+      persistent: adminState.persistent,
+      issue: adminState.issue || "",
+      storageLabel: adminState.storageLabel || ""
     }
   });
 }

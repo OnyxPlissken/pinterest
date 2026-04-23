@@ -13,6 +13,7 @@ Applicazione Next.js da deployare su Vercel per generare on demand un file CSV c
 - seleziona una sola immagine per look, tenendo il file con il numero finale piu basso
 - genera URL immagine pubblici serviti dall'app come proxy live da SharePoint, senza usare Blob
 - genera il CSV Pinterest senza dipendere da Vercel Blob
+- salva utenti, regole e impostazioni operative in file cifrati su SharePoint, senza dipendere da Vercel Blob
 - restituisce il CSV pronto al download dalla dashboard
 
 ## Setup locale
@@ -49,13 +50,13 @@ npm run dev
 
 - `AUTH_SECRET` consigliato per firmare la sessione
 - `AUTH_BOOTSTRAP_USERNAME` e `AUTH_BOOTSTRAP_PASSWORD` per creare il primo amministratore
-- `BLOB_READ_WRITE_TOKEN` per salvare e aggiornare gli utenti in modo persistente su Vercel Blob
+- `APP_STORAGE_FOLDER` opzionale, default `__PinterestAssetsManagement`, per cambiare la cartella SharePoint usata come storage cifrato di utenti, regole e impostazioni
 
 Se non imposti `AUTH_BOOTSTRAP_*`, l'app puo usare in fallback `BASIC_AUTH_USERNAME` e `BASIC_AUTH_PASSWORD` solo per bootstrap iniziale del primo utente.
 
 ## Permessi SharePoint
 
-Per questa implementazione basta accesso applicativo in lettura al sito/document library SharePoint, perche i `Media URL` vengono serviti dall'app usando una route pubblica firmata che fa da proxy live verso SharePoint e non richiede Blob per le immagini.
+Per questa implementazione servono permessi applicativi di lettura al sito/document library SharePoint per immagini ed explorer. Se vuoi anche utenti/regole/impostazioni persistenti direttamente su SharePoint, l'app registration deve poter scrivere nella document library usata dall'app.
 
 ## Deploy su Vercel
 

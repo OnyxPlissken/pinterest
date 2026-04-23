@@ -9,6 +9,7 @@ export async function POST(request) {
     const result = await generatePinterestCsv({
       subPaths: body?.subPaths ?? [],
       subPath: body?.subPath ?? "",
+      ruleId: body?.ruleId ?? "",
       origin: request.nextUrl.origin
     });
 

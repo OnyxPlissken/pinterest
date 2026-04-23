@@ -1,4 +1,4 @@
-import { getConfig } from "../../../lib/config";
+import { getRuntimeConfig } from "../../../lib/admin-store";
 import { getSharePointAccessToken } from "../../../lib/sharepoint-auth";
 import { listFolderEntries } from "../../../lib/sharepoint-client";
 
@@ -7,18 +7,18 @@ export const maxDuration = 300;
 
 export async function GET(request) {
   try {
-    const config = getConfig();
+    const runtime = await getRuntimeConfig();
     const token = await getSharePointAccessToken();
     const subPath = request.nextUrl.searchParams.get("subPath") ?? "";
     const folderPath = subPath
-      ? `${config.sharePoint.baseFolder}/${subPath}`
-      : config.sharePoint.baseFolder;
+      ? `${runtime.config.sharePoint.baseFolder}/${subPath}`
+      : runtime.config.sharePoint.baseFolder;
 
-    const explorer = await listFolderEntries(token, config.sharePoint, folderPath);
+    const explorer = await listFolderEntries(token, runtime.config.sharePoint, folderPath);
 
     return Response.json({
       ...explorer,
-      baseFolder: config.sharePoint.baseFolder
+      baseFolder: runtime.config.sharePoint.baseFolder
     });
   } catch (error) {
     return Response.json(

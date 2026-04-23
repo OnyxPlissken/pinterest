@@ -6,6 +6,7 @@ const VIEWS = [
   { key: "azione", label: "Azione", icon: "play" },
   { key: "explorer", label: "Explorer", icon: "folder" },
   { key: "log", label: "Log", icon: "log" },
+  { key: "regole", label: "Regole", icon: "rules" },
   { key: "utenti", label: "Utenti", icon: "users" },
   { key: "impostazioni", label: "Impostazioni", icon: "settings" }
 ];
@@ -60,6 +61,16 @@ function Glyph({ name }) {
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeWidth="1.3"
+      />
+    ),
+    rules: (
+      <path
+        d="M6 7.5h12M6 12h8M6 16.5h10M16.5 7.5a1.2 1.2 0 1 0 0-2.4 1.2 1.2 0 0 0 0 2.4Zm-3 4.5a1.2 1.2 0 1 0 0-2.4 1.2 1.2 0 0 0 0 2.4Zm4 4.5a1.2 1.2 0 1 0 0-2.4 1.2 1.2 0 0 0 0 2.4Z"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.6"
       />
     ),
     moon: (
@@ -253,6 +264,31 @@ function buildEditUserForm(user) {
   };
 }
 
+function buildRuleForm(rule) {
+  return {
+    name: rule?.name || "",
+    titlePrefix: rule?.titlePrefix || "",
+    descriptionPrefix: rule?.descriptionPrefix || "",
+    linkUrl: rule?.linkUrl || "",
+    thumbnailMode: rule?.thumbnailMode || "blank",
+    active: rule?.active ?? true,
+    notes: rule?.notes || ""
+  };
+}
+
+function buildSettingsForm(settings) {
+  return {
+    appName: settings?.appName || "Pinterest Assets Management",
+    defaultRuleId: settings?.defaultRuleId || "",
+    driveName: settings?.sharePoint?.driveName || "",
+    baseFolder: settings?.sharePoint?.baseFolder || "",
+    titlePrefix: settings?.pinterest?.titlePrefix || "",
+    descriptionPrefix: settings?.pinterest?.descriptionPrefix || "",
+    linkUrl: settings?.pinterest?.linkUrl || "",
+    thumbnailMode: settings?.pinterest?.thumbnailMode || "blank"
+  };
+}
+
 function formatRole(role) {
   return role === "admin" ? "Amministratore" : "Editor";
 }
@@ -281,6 +317,8 @@ export default function HomePage() {
   const [generateLoading, setGenerateLoading] = useState(false);
   const [explorerLoading, setExplorerLoading] = useState(false);
   const [usersLoading, setUsersLoading] = useState(false);
+  const [rulesLoading, setRulesLoading] = useState(false);
+  const [settingsLoading, setSettingsLoading] = useState(false);
   const [systemInfo, setSystemInfo] = useState(null);
   const [rootFolders, setRootFolders] = useState([]);
   const [season, setSeason] = useState("");
@@ -295,10 +333,18 @@ export default function HomePage() {
   const [actionNotice, setActionNotice] = useState(null);
   const [explorerNotice, setExplorerNotice] = useState(null);
   const [userNotice, setUserNotice] = useState(null);
+  const [rulesNotice, setRulesNotice] = useState(null);
+  const [settingsNotice, setSettingsNotice] = useState(null);
   const [users, setUsers] = useState([]);
+  const [rules, setRules] = useState([]);
+  const [selectedRuleId, setSelectedRuleId] = useState("");
+  const [selectedRuleEditorId, setSelectedRuleEditorId] = useState("");
   const [selectedUserId, setSelectedUserId] = useState("");
   const [createUserForm, setCreateUserForm] = useState(buildCreateUserForm());
   const [editUserForm, setEditUserForm] = useState(buildEditUserForm());
+  const [createRuleForm, setCreateRuleForm] = useState(buildRuleForm());
+  const [editRuleForm, setEditRuleForm] = useState(buildRuleForm());
+  const [settingsForm, setSettingsForm] = useState(buildSettingsForm());
 
   useEffect(() => {
     const storedTheme = window.localStorage.getItem("isaia-theme");
@@ -329,6 +375,24 @@ export default function HomePage() {
     window.localStorage.setItem(LOG_STORAGE_KEY, JSON.stringify(operationLogs));
   }, [operationLogs]);
 
+  async function refreshSystemState() {
+    const [systemPayload, explorerPayload] = await Promise.all([
+      fetchJson("/api/system"),
+      fetchJson("/api/explorer")
+    ]);
+
+    setSystemInfo(systemPayload);
+    setRules(systemPayload.rules ?? []);
+    setSettingsForm(buildSettingsForm(systemPayload.settings));
+    setExplorerData(explorerPayload);
+    setRootFolders(explorerPayload.folders ?? []);
+
+    return {
+      systemPayload,
+      explorerPayload
+    };
+  }
+
   useEffect(() => {
     let cancelled = false;
 
@@ -336,18 +400,11 @@ export default function HomePage() {
       setBootLoading(true);
 
       try {
-        const [systemPayload, explorerPayload] = await Promise.all([
-          fetchJson("/api/system"),
-          fetchJson("/api/explorer")
-        ]);
+        await refreshSystemState();
 
         if (cancelled) {
           return;
         }
-
-        setSystemInfo(systemPayload);
-        setExplorerData(explorerPayload);
-        setRootFolders(explorerPayload.folders ?? []);
       } catch (error) {
         if (!cancelled) {
           setActionNotice({
@@ -498,6 +555,27 @@ export default function HomePage() {
     setEditUserForm(buildEditUserForm(nextUser));
   }, [users, selectedUserId]);
 
+  useEffect(() => {
+    const activeRules = rules.filter((rule) => rule.active);
+    const fallbackRuleId =
+      activeRules.find((rule) => rule.id === systemInfo?.settings?.defaultRuleId)?.id ||
+      activeRules[0]?.id ||
+      rules[0]?.id ||
+      "";
+
+    setSelectedRuleId((current) =>
+      activeRules.some((rule) => rule.id === current) ? current : fallbackRuleId
+    );
+    setSelectedRuleEditorId((current) =>
+      rules.some((rule) => rule.id === current) ? current : rules[0]?.id || ""
+    );
+  }, [rules, systemInfo?.settings?.defaultRuleId]);
+
+  useEffect(() => {
+    const nextRule = rules.find((entry) => entry.id === selectedRuleEditorId) || null;
+    setEditRuleForm(buildRuleForm(nextRule));
+  }, [rules, selectedRuleEditorId]);
+
   function switchTheme() {
     const nextTheme = theme === "dark" ? "light" : "dark";
     document.documentElement.dataset.theme = nextTheme;
@@ -579,6 +657,11 @@ export default function HomePage() {
     resetOutputs();
   }
 
+  function handleRuleChange(event) {
+    setSelectedRuleId(event.target.value);
+    resetOutputs();
+  }
+
   function toggleLevel5(subPath) {
     const isRemoving = selectedLevel5s.includes(subPath);
     setSelectedLevel5s((current) => toggleArrayValue(current, subPath));
@@ -651,7 +734,7 @@ export default function HomePage() {
         headers: {
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({ subPaths: selectedTargetPaths })
+        body: JSON.stringify({ subPaths: selectedTargetPaths, ruleId: selectedRuleId })
       });
 
       setPreview(payload);
@@ -666,7 +749,7 @@ export default function HomePage() {
         scannedCount: payload.scannedCount,
         generatedCount: payload.generatedCount,
         skippedCount: payload.skippedCount,
-        message: `${payload.previewItems.length} card mostrate`
+        message: `${payload.previewItems.length} card mostrate${payload.rule?.name ? ` · ${payload.rule.name}` : ""}`
       });
     } catch (error) {
       const message =
@@ -705,7 +788,7 @@ export default function HomePage() {
         headers: {
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({ subPaths: selectedTargetPaths })
+        body: JSON.stringify({ subPaths: selectedTargetPaths, ruleId: selectedRuleId })
       });
 
       setResult(payload);
@@ -720,7 +803,7 @@ export default function HomePage() {
         scannedCount: payload.scannedCount,
         generatedCount: payload.generatedCount,
         skippedCount: payload.skippedCount,
-        message: payload.csvFilename
+        message: `${payload.csvFilename}${payload.rule?.name ? ` · ${payload.rule.name}` : ""}`
       });
     } catch (error) {
       const message =
@@ -834,12 +917,132 @@ export default function HomePage() {
     }
   }
 
+  async function handleCreateRule() {
+    setRulesLoading(true);
+    setRulesNotice(null);
+
+    try {
+      const payload = await fetchJson("/api/rules", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(createRuleForm)
+      });
+
+      await refreshSystemState();
+      setCreateRuleForm(buildRuleForm());
+      setSelectedRuleEditorId(payload.rule?.id || "");
+      setRulesNotice({
+        type: "success",
+        text: `Regola creata: ${payload.rule?.name || ""}`
+      });
+    } catch (error) {
+      setRulesNotice({
+        type: "error",
+        text: error instanceof Error ? error.message : "Errore durante la creazione regola."
+      });
+    } finally {
+      setRulesLoading(false);
+    }
+  }
+
+  async function handleUpdateRule() {
+    if (!selectedRuleEditorId) {
+      setRulesNotice({
+        type: "error",
+        text: "Seleziona prima una regola da modificare."
+      });
+      return;
+    }
+
+    setRulesLoading(true);
+    setRulesNotice(null);
+
+    try {
+      const payload = await fetchJson(`/api/rules/${selectedRuleEditorId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(editRuleForm)
+      });
+
+      await refreshSystemState();
+      setSelectedRuleEditorId(payload.rule?.id || selectedRuleEditorId);
+      setRulesNotice({
+        type: "success",
+        text: `Regola aggiornata: ${payload.rule?.name || ""}`
+      });
+    } catch (error) {
+      setRulesNotice({
+        type: "error",
+        text: error instanceof Error ? error.message : "Errore durante l'aggiornamento regola."
+      });
+    } finally {
+      setRulesLoading(false);
+    }
+  }
+
+  async function handleSaveSettings() {
+    setSettingsLoading(true);
+    setSettingsNotice(null);
+
+    try {
+      await fetchJson("/api/settings", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          appName: settingsForm.appName,
+          defaultRuleId: settingsForm.defaultRuleId,
+          sharePoint: {
+            driveName: settingsForm.driveName,
+            baseFolder: settingsForm.baseFolder
+          },
+          pinterest: {
+            titlePrefix: settingsForm.titlePrefix,
+            descriptionPrefix: settingsForm.descriptionPrefix,
+            linkUrl: settingsForm.linkUrl,
+            thumbnailMode: settingsForm.thumbnailMode
+          }
+        })
+      });
+
+      setSeason("");
+      setSelectedLevel5s([]);
+      setSelectedTargetPaths([]);
+      resetOutputs();
+      await refreshSystemState();
+      setSettingsNotice({
+        type: "success",
+        text: "Impostazioni aggiornate."
+      });
+    } catch (error) {
+      setSettingsNotice({
+        type: "error",
+        text: error instanceof Error ? error.message : "Errore durante il salvataggio impostazioni."
+      });
+    } finally {
+      setSettingsLoading(false);
+    }
+  }
+
   const allLevel5Paths = useMemo(() => useAllValues(level5Folders), [level5Folders]);
   const allTargetPaths = useMemo(
     () => level6Groups.flatMap((group) => group.folders.map((folder) => folder.subPath)),
     [level6Groups]
   );
   const currentUser = systemInfo?.auth?.currentUser ?? null;
+  const selectedRule = useMemo(
+    () => rules.find((entry) => entry.id === selectedRuleId) || null,
+    [rules, selectedRuleId]
+  );
+  const selectedRuleEditor = useMemo(
+    () => rules.find((entry) => entry.id === selectedRuleEditorId) || null,
+    [rules, selectedRuleEditorId]
+  );
   const selectedUser = useMemo(
     () => users.find((entry) => entry.id === selectedUserId) || null,
     [users, selectedUserId]
@@ -881,7 +1084,9 @@ export default function HomePage() {
           <div className="brand-mark">I</div>
           <div>
             <div className="brand-title">ISAIA e ISAIA</div>
-            <div className="brand-subtitle">Pinterest Assets Management</div>
+            <div className="brand-subtitle">
+              {systemInfo?.settings?.appName || "Pinterest Assets Management"}
+            </div>
           </div>
         </div>
 
@@ -982,6 +1187,21 @@ export default function HomePage() {
               </div>
 
               <div className="form-grid">
+                <label className="field">
+                  <span>Regola</span>
+                  <select
+                    className="select-field"
+                    value={selectedRuleId}
+                    onChange={handleRuleChange}
+                    disabled={!rules.length}
+                  >
+                    {(rules.filter((rule) => rule.active).length ? rules.filter((rule) => rule.active) : rules).map((rule) => (
+                      <option key={rule.id} value={rule.id}>
+                        {rule.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
                 <label className="field">
                   <span>Stagione</span>
                   <select
@@ -1126,6 +1346,10 @@ export default function HomePage() {
                   <strong>{selectedTargetPaths.length}</strong>
                 </div>
                 <div className="summary-item">
+                  <span>Regola attiva</span>
+                  <strong>{selectedRule?.name || "Nessuna regola"}</strong>
+                </div>
+                <div className="summary-item">
                   <span>Modalita</span>
                   <strong>
                     {selectedTargetPaths.length === allTargetPaths.length && allTargetPaths.length
@@ -1208,6 +1432,10 @@ export default function HomePage() {
                       <strong>{formatPaths(preview.sourcePaths)}</strong>
                     </div>
                     <div className="summary-item">
+                      <span>Regola</span>
+                      <strong>{preview.rule?.name || selectedRule?.name || "Standard"}</strong>
+                    </div>
+                    <div className="summary-item">
                       <span>Scarti</span>
                       <strong>{preview.skippedCount}</strong>
                     </div>
@@ -1266,9 +1494,7 @@ export default function HomePage() {
                   </div>
                 </>
               ) : (
-                <div className="empty-preview">
-                  Scegli una o piu cartelle finali e carica l&apos;anteprima prima della generazione.
-                </div>
+                <div className="empty-preview">Nessuna anteprima caricata.</div>
               )}
             </section>
           </>
@@ -1450,6 +1676,356 @@ export default function HomePage() {
           </section>
         ) : null}
 
+        {activeView === "regole" ? (
+          <section className="two-column-grid">
+            <article className="panel">
+              <div className="panel-head">
+                <div>
+                  <h3>Regole</h3>
+                  <p>Scegli quali preset usare in Azione e mantieni un default operativo controllato.</p>
+                </div>
+                {currentUser?.role === "admin" ? (
+                  <button
+                    className="panel-button subtle"
+                    type="button"
+                    onClick={async () => {
+                      setRulesLoading(true);
+                      try {
+                        await refreshSystemState();
+                      } finally {
+                        setRulesLoading(false);
+                      }
+                    }}
+                    disabled={rulesLoading}
+                  >
+                    <Glyph name="refresh" />
+                    <span>{rulesLoading ? "Aggiornamento..." : "Aggiorna"}</span>
+                  </button>
+                ) : null}
+              </div>
+
+              <div className="info-grid">
+                <div className="info-card">
+                  <span>Regole attive</span>
+                  <strong>{rules.filter((rule) => rule.active).length}</strong>
+                </div>
+                <div className="info-card">
+                  <span>Default operativo</span>
+                  <strong>
+                    {rules.find((rule) => rule.id === systemInfo?.settings?.defaultRuleId)?.name || "-"}
+                  </strong>
+                </div>
+                <div className="info-card">
+                  <span>Storage</span>
+                  <strong>{systemInfo?.adminStore?.storageLabel || "Caricamento..."}</strong>
+                </div>
+              </div>
+
+              {rulesNotice ? <div className={`notice ${rulesNotice.type}`}>{rulesNotice.text}</div> : null}
+              {systemInfo?.adminStore?.issue ? (
+                <div className="notice info">{systemInfo.adminStore.issue}</div>
+              ) : null}
+
+              <div className="user-list">
+                {rules.map((rule) => (
+                  <button
+                    key={rule.id}
+                    className={`user-row ${selectedRuleEditorId === rule.id ? "active" : ""}`}
+                    type="button"
+                    onClick={() => setSelectedRuleEditorId(rule.id)}
+                  >
+                    <div className="user-row-main">
+                      <div className="user-avatar">{(rule.name || "R").slice(0, 2).toUpperCase()}</div>
+                      <div className="user-copy">
+                        <strong>{rule.name}</strong>
+                        <span>{rule.titlePrefix}</span>
+                      </div>
+                    </div>
+                    <div className="user-row-meta">
+                      <span className={`status-pill ${rule.active ? "ok" : "error"}`}>
+                        {rule.active ? "Attiva" : "Disattiva"}
+                      </span>
+                      <small>{rule.thumbnailMode === "level5" ? "Thumbnail livello 5" : "Thumbnail vuota"}</small>
+                    </div>
+                  </button>
+                ))}
+
+                {!rules.length ? <div className="empty-block">Nessuna regola configurata.</div> : null}
+              </div>
+            </article>
+
+            <article className="panel">
+              <div className="panel-head">
+                <div>
+                  <h3>Gestione regole</h3>
+                  <p>Crea nuove regole e aggiorna quelle esistenti prima di avviare anteprima o CSV.</p>
+                </div>
+              </div>
+
+              {currentUser?.role === "admin" ? (
+                <div className="user-editor-stack">
+                  <div className="editor-block">
+                    <div className="editor-block-head">
+                      <h4>Nuova regola</h4>
+                    </div>
+
+                    <div className="form-grid">
+                      <label className="field">
+                        <span>Nome regola</span>
+                        <input
+                          className="select-field"
+                          type="text"
+                          value={createRuleForm.name}
+                          onChange={(event) =>
+                            setCreateRuleForm((current) => ({
+                              ...current,
+                              name: event.target.value
+                            }))
+                          }
+                          placeholder="Lookbook standard"
+                        />
+                      </label>
+                      <label className="field">
+                        <span>Titolo fisso</span>
+                        <input
+                          className="select-field"
+                          type="text"
+                          value={createRuleForm.titlePrefix}
+                          onChange={(event) =>
+                            setCreateRuleForm((current) => ({
+                              ...current,
+                              titlePrefix: event.target.value
+                            }))
+                          }
+                          placeholder="Isaia Napoli"
+                        />
+                      </label>
+                      <label className="field">
+                        <span>Descrizione fissa</span>
+                        <input
+                          className="select-field"
+                          type="text"
+                          value={createRuleForm.descriptionPrefix}
+                          onChange={(event) =>
+                            setCreateRuleForm((current) => ({
+                              ...current,
+                              descriptionPrefix: event.target.value
+                            }))
+                          }
+                          placeholder="ISAIA Napoli"
+                        />
+                      </label>
+                      <label className="field">
+                        <span>Link</span>
+                        <input
+                          className="select-field"
+                          type="url"
+                          value={createRuleForm.linkUrl}
+                          onChange={(event) =>
+                            setCreateRuleForm((current) => ({
+                              ...current,
+                              linkUrl: event.target.value
+                            }))
+                          }
+                          placeholder="https://www.isaia.it/"
+                        />
+                      </label>
+                      <label className="field">
+                        <span>Thumbnail</span>
+                        <select
+                          className="select-field"
+                          value={createRuleForm.thumbnailMode}
+                          onChange={(event) =>
+                            setCreateRuleForm((current) => ({
+                              ...current,
+                              thumbnailMode: event.target.value
+                            }))
+                          }
+                        >
+                          <option value="blank">Vuota</option>
+                          <option value="level5">Nome livello 5</option>
+                        </select>
+                      </label>
+                      <label className="field">
+                        <span>Note</span>
+                        <input
+                          className="select-field"
+                          type="text"
+                          value={createRuleForm.notes}
+                          onChange={(event) =>
+                            setCreateRuleForm((current) => ({
+                              ...current,
+                              notes: event.target.value
+                            }))
+                          }
+                          placeholder="Uso editoriale, capsule, test..."
+                        />
+                      </label>
+                    </div>
+
+                    <label className="toggle-line">
+                      <input
+                        type="checkbox"
+                        checked={createRuleForm.active}
+                        onChange={(event) =>
+                          setCreateRuleForm((current) => ({
+                            ...current,
+                            active: event.target.checked
+                          }))
+                        }
+                      />
+                      <span>Regola attiva</span>
+                    </label>
+
+                    <div className="action-row">
+                      <button className="primary-button" type="button" onClick={handleCreateRule} disabled={rulesLoading}>
+                        <Glyph name="plus" />
+                        <span>{rulesLoading ? "Salvataggio..." : "Crea regola"}</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="editor-block">
+                    <div className="editor-block-head">
+                      <h4>Modifica regola</h4>
+                      <span className="tag soft">{selectedRuleEditor?.name || "Nessuna selezionata"}</span>
+                    </div>
+
+                    {selectedRuleEditor ? (
+                      <>
+                        <div className="form-grid">
+                          <label className="field">
+                            <span>Nome regola</span>
+                            <input
+                              className="select-field"
+                              type="text"
+                              value={editRuleForm.name}
+                              onChange={(event) =>
+                                setEditRuleForm((current) => ({
+                                  ...current,
+                                  name: event.target.value
+                                }))
+                              }
+                            />
+                          </label>
+                          <label className="field">
+                            <span>Titolo fisso</span>
+                            <input
+                              className="select-field"
+                              type="text"
+                              value={editRuleForm.titlePrefix}
+                              onChange={(event) =>
+                                setEditRuleForm((current) => ({
+                                  ...current,
+                                  titlePrefix: event.target.value
+                                }))
+                              }
+                            />
+                          </label>
+                          <label className="field">
+                            <span>Descrizione fissa</span>
+                            <input
+                              className="select-field"
+                              type="text"
+                              value={editRuleForm.descriptionPrefix}
+                              onChange={(event) =>
+                                setEditRuleForm((current) => ({
+                                  ...current,
+                                  descriptionPrefix: event.target.value
+                                }))
+                              }
+                            />
+                          </label>
+                          <label className="field">
+                            <span>Link</span>
+                            <input
+                              className="select-field"
+                              type="url"
+                              value={editRuleForm.linkUrl}
+                              onChange={(event) =>
+                                setEditRuleForm((current) => ({
+                                  ...current,
+                                  linkUrl: event.target.value
+                                }))
+                              }
+                            />
+                          </label>
+                          <label className="field">
+                            <span>Thumbnail</span>
+                            <select
+                              className="select-field"
+                              value={editRuleForm.thumbnailMode}
+                              onChange={(event) =>
+                                setEditRuleForm((current) => ({
+                                  ...current,
+                                  thumbnailMode: event.target.value
+                                }))
+                              }
+                            >
+                              <option value="blank">Vuota</option>
+                              <option value="level5">Nome livello 5</option>
+                            </select>
+                          </label>
+                          <label className="field">
+                            <span>Note</span>
+                            <input
+                              className="select-field"
+                              type="text"
+                              value={editRuleForm.notes}
+                              onChange={(event) =>
+                                setEditRuleForm((current) => ({
+                                  ...current,
+                                  notes: event.target.value
+                                }))
+                              }
+                            />
+                          </label>
+                        </div>
+
+                        <label className="toggle-line">
+                          <input
+                            type="checkbox"
+                            checked={editRuleForm.active}
+                            onChange={(event) =>
+                              setEditRuleForm((current) => ({
+                                ...current,
+                                active: event.target.checked
+                              }))
+                            }
+                          />
+                          <span>Regola attiva</span>
+                        </label>
+
+                        <div className="user-detail-grid">
+                          <div className="summary-item">
+                            <span>Creata</span>
+                            <strong>{formatDateTime(selectedRuleEditor.createdAt)}</strong>
+                          </div>
+                          <div className="summary-item">
+                            <span>Aggiornata</span>
+                            <strong>{formatDateTime(selectedRuleEditor.updatedAt)}</strong>
+                          </div>
+                        </div>
+
+                        <div className="action-row">
+                          <button className="primary-button" type="button" onClick={handleUpdateRule} disabled={rulesLoading}>
+                            <Glyph name="check" />
+                            <span>{rulesLoading ? "Salvataggio..." : "Salva regola"}</span>
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="empty-block">Seleziona una regola per modificarla.</div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="empty-block">Solo un amministratore puo creare o modificare le regole.</div>
+              )}
+            </article>
+          </section>
+        ) : null}
+
         {activeView === "utenti" ? (
           <section className="two-column-grid">
             <article className="panel">
@@ -1478,9 +2054,10 @@ export default function HomePage() {
                 <div className="info-card">
                   <span>Storage utenti</span>
                   <strong>
-                    {systemInfo?.auth?.usersPersistent
-                      ? "Vercel Blob cifrato"
-                      : systemInfo?.auth?.usersIssue || "Solo bootstrap"}
+                    {systemInfo?.auth?.usersStorageLabel ||
+                      (systemInfo?.auth?.usersPersistent
+                        ? "SharePoint cifrato"
+                        : systemInfo?.auth?.usersIssue || "Storage non disponibile")}
                   </strong>
                 </div>
                 <div className="info-card">
@@ -1735,60 +2312,196 @@ export default function HomePage() {
         ) : null}
 
         {activeView === "impostazioni" ? (
-          <section className="panel">
-            <div className="panel-head">
-              <div>
-                <h3>Impostazioni operative</h3>
-                <p>Valori attivi usati dall&apos;app per SharePoint, accesso e generazione CSV.</p>
+          <section className="two-column-grid">
+            <article className="panel">
+              <div className="panel-head">
+                <div>
+                  <h3>Impostazioni operative</h3>
+                  <p>Modifica solo i parametri operativi dell&apos;app; credenziali e segreti restano in environment.</p>
+                </div>
               </div>
-            </div>
 
-            <div className="settings-grid">
-              <div className="setting-card">
-                <span>Sito SharePoint</span>
-                <strong>{systemInfo?.settings.sharePointUrl ?? "Caricamento..."}</strong>
+              {settingsNotice ? <div className={`notice ${settingsNotice.type}`}>{settingsNotice.text}</div> : null}
+              {systemInfo?.adminStore?.issue ? (
+                <div className="notice info">{systemInfo.adminStore.issue}</div>
+              ) : null}
+
+              {currentUser?.role === "admin" ? (
+                <>
+                  <div className="form-grid">
+                    <label className="field">
+                      <span>Nome applicazione</span>
+                      <input
+                        className="select-field"
+                        type="text"
+                        value={settingsForm.appName}
+                        onChange={(event) =>
+                          setSettingsForm((current) => ({
+                            ...current,
+                            appName: event.target.value
+                          }))
+                        }
+                      />
+                    </label>
+                    <label className="field">
+                      <span>Regola default</span>
+                      <select
+                        className="select-field"
+                        value={settingsForm.defaultRuleId}
+                        onChange={(event) =>
+                          setSettingsForm((current) => ({
+                            ...current,
+                            defaultRuleId: event.target.value
+                          }))
+                        }
+                      >
+                        {rules.filter((rule) => rule.active).map((rule) => (
+                          <option key={rule.id} value={rule.id}>
+                            {rule.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="field">
+                      <span>Libreria SharePoint</span>
+                      <input
+                        className="select-field"
+                        type="text"
+                        value={settingsForm.driveName}
+                        onChange={(event) =>
+                          setSettingsForm((current) => ({
+                            ...current,
+                            driveName: event.target.value
+                          }))
+                        }
+                      />
+                    </label>
+                    <label className="field">
+                      <span>Cartella base</span>
+                      <input
+                        className="select-field"
+                        type="text"
+                        value={settingsForm.baseFolder}
+                        onChange={(event) =>
+                          setSettingsForm((current) => ({
+                            ...current,
+                            baseFolder: event.target.value
+                          }))
+                        }
+                      />
+                    </label>
+                    <label className="field">
+                      <span>Titolo fisso default</span>
+                      <input
+                        className="select-field"
+                        type="text"
+                        value={settingsForm.titlePrefix}
+                        onChange={(event) =>
+                          setSettingsForm((current) => ({
+                            ...current,
+                            titlePrefix: event.target.value
+                          }))
+                        }
+                      />
+                    </label>
+                    <label className="field">
+                      <span>Descrizione fissa default</span>
+                      <input
+                        className="select-field"
+                        type="text"
+                        value={settingsForm.descriptionPrefix}
+                        onChange={(event) =>
+                          setSettingsForm((current) => ({
+                            ...current,
+                            descriptionPrefix: event.target.value
+                          }))
+                        }
+                      />
+                    </label>
+                    <label className="field">
+                      <span>Link default</span>
+                      <input
+                        className="select-field"
+                        type="url"
+                        value={settingsForm.linkUrl}
+                        onChange={(event) =>
+                          setSettingsForm((current) => ({
+                            ...current,
+                            linkUrl: event.target.value
+                          }))
+                        }
+                      />
+                    </label>
+                    <label className="field">
+                      <span>Thumbnail default</span>
+                      <select
+                        className="select-field"
+                        value={settingsForm.thumbnailMode}
+                        onChange={(event) =>
+                          setSettingsForm((current) => ({
+                            ...current,
+                            thumbnailMode: event.target.value
+                          }))
+                        }
+                      >
+                        <option value="blank">Vuota</option>
+                        <option value="level5">Nome livello 5</option>
+                      </select>
+                    </label>
+                  </div>
+
+                  <div className="action-row">
+                    <button className="primary-button" type="button" onClick={handleSaveSettings} disabled={settingsLoading}>
+                      <Glyph name="check" />
+                      <span>{settingsLoading ? "Salvataggio..." : "Salva impostazioni"}</span>
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className="empty-block">Solo un amministratore puo modificare le impostazioni operative.</div>
+              )}
+            </article>
+
+            <article className="panel">
+              <div className="panel-head">
+                <div>
+                  <h3>Stato piattaforma</h3>
+                  <p>Valori di contesto utili per capire cosa governa l&apos;app e cosa resta protetto.</p>
+                </div>
               </div>
-              <div className="setting-card">
-                <span>Libreria</span>
-                <strong>{systemInfo?.settings.library ?? "Caricamento..."}</strong>
+
+              <div className="settings-grid">
+                <div className="setting-card">
+                  <span>Sito SharePoint</span>
+                  <strong>{systemInfo?.settings.sharePointUrl ?? "Caricamento..."}</strong>
+                </div>
+                <div className="setting-card">
+                  <span>Storage amministrativo</span>
+                  <strong>{systemInfo?.adminStore?.storageLabel || "Caricamento..."}</strong>
+                </div>
+                <div className="setting-card">
+                  <span>Storage utenti</span>
+                  <strong>
+                    {systemInfo?.auth?.usersStorageLabel ||
+                      (systemInfo?.auth?.usersPersistent
+                        ? "SharePoint cifrato"
+                        : systemInfo?.auth?.usersIssue || "Storage non disponibile")}
+                  </strong>
+                </div>
+                <div className="setting-card">
+                  <span>Media URL</span>
+                  <strong>{systemInfo?.settings.mediaMode ?? "Caricamento..."}</strong>
+                </div>
+                <div className="setting-card">
+                  <span>Accesso dashboard</span>
+                  <strong>Login con sessione firmata</strong>
+                </div>
+                <div className="setting-card">
+                  <span>Segreti</span>
+                  <strong>Gestiti solo da environment Vercel</strong>
+                </div>
               </div>
-              <div className="setting-card">
-                <span>Cartella base</span>
-                <strong>{systemInfo?.settings.baseFolder ?? "Caricamento..."}</strong>
-              </div>
-              <div className="setting-card">
-                <span>Titolo fisso</span>
-                <strong>{systemInfo?.settings.titlePrefix ?? "Caricamento..."}</strong>
-              </div>
-              <div className="setting-card">
-                <span>Descrizione fissa</span>
-                <strong>{systemInfo?.settings.descriptionPrefix ?? "Caricamento..."}</strong>
-              </div>
-              <div className="setting-card">
-                <span>Link</span>
-                <strong>{systemInfo?.settings.linkUrl ?? "Caricamento..."}</strong>
-              </div>
-              <div className="setting-card">
-                <span>Thumbnail</span>
-                <strong>{systemInfo?.settings.thumbnailMode ?? "Caricamento..."}</strong>
-              </div>
-              <div className="setting-card">
-                <span>Media URL</span>
-                <strong>{systemInfo?.settings.mediaMode ?? "Caricamento..."}</strong>
-              </div>
-              <div className="setting-card">
-                <span>Accesso dashboard</span>
-                <strong>Login con sessione firmata</strong>
-              </div>
-              <div className="setting-card">
-                <span>Storage utenti</span>
-                <strong>
-                  {systemInfo?.auth?.usersPersistent
-                    ? "Vercel Blob cifrato"
-                    : systemInfo?.auth?.usersIssue || "Solo bootstrap"}
-                </strong>
-              </div>
-            </div>
+            </article>
           </section>
         ) : null}
 

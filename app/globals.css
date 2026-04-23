@@ -1118,8 +1118,8 @@ svg {
 .auth-panel {
   padding: 22px;
   display: grid;
-  align-content: space-between;
-  gap: 20px;
+  align-content: start;
+  gap: 14px;
 }
 
 .auth-card {
@@ -1127,7 +1127,7 @@ svg {
 }
 
 .auth-copy h1 {
-  margin: 10px 0 0;
+  margin: 8px 0 0;
   font-size: 30px;
   letter-spacing: -0.05em;
 }
