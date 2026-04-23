@@ -25,8 +25,9 @@ npm run dev
 
 - `SHAREPOINT_TENANT_ID`
 - `SHAREPOINT_CLIENT_ID`
-- `SHAREPOINT_THUMBPRINT`
-- `SHAREPOINT_PRIVATE_KEY` oppure `SHAREPOINT_PRIVATE_KEY_BASE64`
+- `SHAREPOINT_CLIENT_SECRET` oppure, in alternativa, autenticazione a certificato con:
+  - `SHAREPOINT_THUMBPRINT`
+  - `SHAREPOINT_PRIVATE_KEY` oppure `SHAREPOINT_PRIVATE_KEY_BASE64`
 - `SHAREPOINT_HOSTNAME=isaia.sharepoint.com`
 - `SHAREPOINT_SITE_PATH=/sites/branding`
 - `SHAREPOINT_DRIVE_NAME=Documenti condivisi`
@@ -63,4 +64,4 @@ L'app Entra ID deve quindi avere permessi applicativi con admin consent per legg
 
 ## Nota importante
 
-Il solo thumbprint non basta per autenticare l'app su Vercel. Serve anche la chiave privata del certificato corrispondente, da caricare come `SHAREPOINT_PRIVATE_KEY` oppure `SHAREPOINT_PRIVATE_KEY_BASE64`.
+Se usi il flusso a secret devi impostare il `client secret value`, non il `Secret ID` mostrato da Entra. Se invece usi il flusso a certificato, il solo thumbprint non basta e serve anche la chiave privata del certificato corrispondente.
