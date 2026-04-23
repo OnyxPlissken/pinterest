@@ -1,4 +1,4 @@
-import { generatePinterestCsv } from "../../../lib/pinterest";
+import { previewPinterestSelection } from "../../../lib/pinterest";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -6,17 +6,17 @@ export const maxDuration = 300;
 export async function POST(request) {
   try {
     const body = await request.json().catch(() => ({}));
-    const result = await generatePinterestCsv({
+    const preview = await previewPinterestSelection({
       subPaths: body?.subPaths ?? [],
       subPath: body?.subPath ?? "",
       origin: request.nextUrl.origin
     });
 
-    return Response.json(result);
+    return Response.json(preview);
   } catch (error) {
     return Response.json(
       {
-        error: error instanceof Error ? error.message : "Errore interno."
+        error: error instanceof Error ? error.message : "Errore durante la creazione dell'anteprima."
       },
       {
         status: 500

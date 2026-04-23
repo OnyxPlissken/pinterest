@@ -4,13 +4,16 @@ Applicazione Next.js da deployare su Vercel per generare on demand un file CSV c
 
 ## Cosa fa
 
-- legge SharePoint via Microsoft Graph con autenticazione applicativa a certificato
+- legge SharePoint via SharePoint REST con autenticazione applicativa
 - parte da `Shared Folder/02_Collezioni`
-- supporta un sotto-percorso opzionale da UI, ad esempio `SS26/Lookbook`
+- espone un explorer per navigare cartelle e file SharePoint
+- fa selezionare stagione, una o piu sotto-cartelle e una o piu sotto-sotto-cartelle
+- permette la scelta rapida `tutte` oppure la multiselezione manuale
+- mostra un'anteprima reale dei pin prima della generazione
 - seleziona una sola immagine per look, tenendo il file con il numero finale piu basso
-- carica le immagini selezionate in Vercel Blob pubblico
-- genera il CSV Pinterest con URL immagine realmente pubblici
-- restituisce un link per scaricare il CSV generato
+- genera URL immagine pubblici serviti dall'app come proxy live da SharePoint, senza usare Blob
+- genera il CSV Pinterest senza dipendere da Vercel Blob
+- restituisce il CSV pronto al download dalla dashboard
 
 ## Setup locale
 
@@ -32,6 +35,8 @@ npm run dev
 - `SHAREPOINT_SITE_PATH=/sites/branding`
 - `SHAREPOINT_DRIVE_NAME=Documenti condivisi`
 - `SHAREPOINT_BASE_FOLDER=Shared Folder/02_Collezioni`
+- `PUBLIC_APP_ORIGIN` opzionale, utile per fissare il dominio pubblico dell'app
+- `MEDIA_SIGNING_SECRET` opzionale, per firmare i Media URL pubblici
 
 ### Output Pinterest
 
@@ -45,22 +50,15 @@ npm run dev
 - `BASIC_AUTH_USERNAME`
 - `BASIC_AUTH_PASSWORD`
 
-### Vercel Blob
+## Permessi SharePoint
 
-- `BLOB_READ_WRITE_TOKEN`
-
-## Permessi Microsoft Graph
-
-Per questa implementazione basta accesso in lettura al sito/document library SharePoint, perche i link pubblici delle immagini vengono serviti da Vercel Blob e non da SharePoint.
-
-L'app Entra ID deve quindi avere permessi applicativi con admin consent per leggere sito, libreria e file necessari.
+Per questa implementazione basta accesso applicativo in lettura al sito/document library SharePoint, perche i `Media URL` vengono serviti dall'app usando una route pubblica firmata che fa da proxy live verso SharePoint e non richiede Blob.
 
 ## Deploy su Vercel
 
 1. collega la repo a un progetto Vercel
-2. crea e collega un Blob store pubblico
-3. imposta le environment variables
-4. deploya
+2. imposta le environment variables
+3. deploya
 
 ## Nota importante
 

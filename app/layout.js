@@ -13,8 +13,8 @@ const jetBrainsMono = JetBrains_Mono({
 });
 
 export const metadata = {
-  title: "ISAIA Pinterest CSV Generator",
-  description: "Genera CSV Pinterest da SharePoint e pubblica le immagini su Vercel Blob."
+  title: "ISAIA Pinterest Control",
+  description: "Dashboard operativa per esplorare SharePoint, vedere l'anteprima e generare CSV Pinterest."
 };
 
 export default function RootLayout({ children }) {

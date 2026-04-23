@@ -36,7 +36,10 @@ function decodeBasicAuth(authorizationHeader) {
 }
 
 export function proxy(request) {
-  if (request.nextUrl.pathname === "/api/health") {
+  if (
+    request.nextUrl.pathname === "/api/health" ||
+    request.nextUrl.pathname.startsWith("/media")
+  ) {
     return NextResponse.next();
   }
 
