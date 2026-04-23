@@ -117,6 +117,8 @@ svg {
   top: 0;
   min-height: 100vh;
   padding: 18px 14px;
+  display: flex;
+  flex-direction: column;
   background: color-mix(in srgb, var(--sidebar) 92%, transparent);
   border-right: 1px solid var(--line);
   backdrop-filter: blur(16px);
