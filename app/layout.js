@@ -13,7 +13,7 @@ const jetBrainsMono = JetBrains_Mono({
 });
 
 export const metadata = {
-  title: "ISAIA Pinterest Control",
+  title: "ISAIA Pinterest Assets Management",
   description: "Dashboard operativa per esplorare SharePoint, vedere l'anteprima e generare CSV Pinterest."
 };
 

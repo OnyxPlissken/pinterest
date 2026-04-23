@@ -881,7 +881,7 @@ export default function HomePage() {
           <div className="brand-mark">I</div>
           <div>
             <div className="brand-title">ISAIA e ISAIA</div>
-            <div className="brand-subtitle">Controllo Pinterest</div>
+            <div className="brand-subtitle">Pinterest Assets Management</div>
           </div>
         </div>
 
@@ -1477,7 +1477,11 @@ export default function HomePage() {
                 </div>
                 <div className="info-card">
                   <span>Storage utenti</span>
-                  <strong>{systemInfo?.auth?.usersPersistent ? "Vercel Blob cifrato" : "Solo bootstrap"}</strong>
+                  <strong>
+                    {systemInfo?.auth?.usersPersistent
+                      ? "Vercel Blob cifrato"
+                      : systemInfo?.auth?.usersIssue || "Solo bootstrap"}
+                  </strong>
                 </div>
                 <div className="info-card">
                   <span>Media pubblici</span>
@@ -1486,32 +1490,38 @@ export default function HomePage() {
               </div>
 
               {currentUser?.role === "admin" ? (
-                <div className="user-list">
-                  {users.map((user) => (
-                    <button
-                      key={user.id}
-                      className={`user-row ${selectedUserId === user.id ? "active" : ""}`}
-                      type="button"
-                      onClick={() => setSelectedUserId(user.id)}
-                    >
-                      <div className="user-row-main">
-                        <div className="user-avatar">{getInitials(user.displayName)}</div>
-                        <div className="user-copy">
-                          <strong>{user.displayName}</strong>
-                          <span>{user.username}</span>
-                        </div>
-                      </div>
-                      <div className="user-row-meta">
-                        <span className={`status-pill ${user.active ? "ok" : "error"}`}>
-                          {user.active ? "Attivo" : "Disattivo"}
-                        </span>
-                        <small>{formatRole(user.role)}</small>
-                      </div>
-                    </button>
-                  ))}
+                <>
+                  {!systemInfo?.auth?.usersPersistent && systemInfo?.auth?.usersIssue ? (
+                    <div className="notice info">{systemInfo.auth.usersIssue}</div>
+                  ) : null}
 
-                  {!users.length ? <div className="empty-block">Nessun utente configurato.</div> : null}
-                </div>
+                  <div className="user-list">
+                    {users.map((user) => (
+                      <button
+                        key={user.id}
+                        className={`user-row ${selectedUserId === user.id ? "active" : ""}`}
+                        type="button"
+                        onClick={() => setSelectedUserId(user.id)}
+                      >
+                        <div className="user-row-main">
+                          <div className="user-avatar">{getInitials(user.displayName)}</div>
+                          <div className="user-copy">
+                            <strong>{user.displayName}</strong>
+                            <span>{user.username}</span>
+                          </div>
+                        </div>
+                        <div className="user-row-meta">
+                          <span className={`status-pill ${user.active ? "ok" : "error"}`}>
+                            {user.active ? "Attivo" : "Disattivo"}
+                          </span>
+                          <small>{formatRole(user.role)}</small>
+                        </div>
+                      </button>
+                    ))}
+
+                    {!users.length ? <div className="empty-block">Nessun utente configurato.</div> : null}
+                  </div>
+                </>
               ) : (
                 <div className="empty-block">Solo un amministratore puo creare o modificare utenti.</div>
               )}
@@ -1772,7 +1782,11 @@ export default function HomePage() {
               </div>
               <div className="setting-card">
                 <span>Storage utenti</span>
-                <strong>{systemInfo?.auth?.usersPersistent ? "Vercel Blob cifrato" : "Solo bootstrap"}</strong>
+                <strong>
+                  {systemInfo?.auth?.usersPersistent
+                    ? "Vercel Blob cifrato"
+                    : systemInfo?.auth?.usersIssue || "Solo bootstrap"}
+                </strong>
               </div>
             </div>
           </section>

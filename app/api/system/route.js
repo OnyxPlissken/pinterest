@@ -31,6 +31,7 @@ export async function GET(request) {
       mode: "login",
       currentUser: session,
       usersPersistent: userStore.persistent,
+      usersIssue: userStore.issue || "",
       protectedRoutes: ["/", "/api/explorer", "/api/preview", "/api/generate", "/api/system"],
       publicRoutes: ["/login", "/media", "/api/health"]
     },

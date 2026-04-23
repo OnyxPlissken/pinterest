@@ -105,7 +105,7 @@ export default function LoginPage() {
             <div className="brand-mark">I</div>
             <div>
               <div className="brand-title">ISAIA e ISAIA</div>
-              <div className="brand-subtitle">Controllo Pinterest</div>
+              <div className="brand-subtitle">Pinterest Assets Management</div>
             </div>
           </div>
 
@@ -115,17 +115,6 @@ export default function LoginPage() {
             <p>
               Usa le credenziali interne per entrare, generare anteprime e creare i CSV Pinterest.
             </p>
-          </div>
-
-          <div className="auth-bullets">
-            <div className="auth-bullet">
-              <span className="meta-label">Percorso base</span>
-              <strong>Shared Folder / 02_Collezioni</strong>
-            </div>
-            <div className="auth-bullet">
-              <span className="meta-label">Media URL</span>
-              <strong>Proxy pubblico live da SharePoint</strong>
-            </div>
           </div>
         </div>
 
