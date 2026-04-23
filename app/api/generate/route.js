@@ -1,4 +1,5 @@
 import { generatePinterestCsv } from "../../../lib/pinterest";
+import { normalizeOperationalError } from "../../../lib/operational-errors";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -15,12 +16,16 @@ export async function POST(request) {
 
     return Response.json(result);
   } catch (error) {
+    const normalized = normalizeOperationalError(
+      error,
+      "Generazione CSV non completata."
+    );
     return Response.json(
       {
-        error: error instanceof Error ? error.message : "Errore interno."
+        error: normalized.message
       },
       {
-        status: 500
+        status: normalized.status
       }
     );
   }

@@ -1,4 +1,6 @@
 import { getRuntimeConfig } from "../../../lib/admin-store";
+import { buildPublicMediaUrl } from "../../../lib/media-url";
+import { normalizeOperationalError } from "../../../lib/operational-errors";
 import { getSharePointAccessToken } from "../../../lib/sharepoint-auth";
 import { listFolderEntries } from "../../../lib/sharepoint-client";
 
@@ -18,15 +20,23 @@ export async function GET(request) {
 
     return Response.json({
       ...explorer,
+      files: (explorer.files ?? []).map((file) => ({
+        ...file,
+        openUrl: buildPublicMediaUrl(file.serverRelativeUrl, request.nextUrl.origin)
+      })),
       baseFolder: runtime.config.sharePoint.baseFolder
     });
   } catch (error) {
+    const normalized = normalizeOperationalError(
+      error,
+      "Errore durante la lettura dei contenuti SharePoint."
+    );
     return Response.json(
       {
-        error: error instanceof Error ? error.message : "Errore durante la lettura di SharePoint."
+        error: normalized.message
       },
       {
-        status: 500
+        status: normalized.status
       }
     );
   }

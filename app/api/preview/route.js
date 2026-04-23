@@ -1,4 +1,5 @@
 import { previewPinterestSelection } from "../../../lib/pinterest";
+import { normalizeOperationalError } from "../../../lib/operational-errors";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -15,12 +16,16 @@ export async function POST(request) {
 
     return Response.json(preview);
   } catch (error) {
+    const normalized = normalizeOperationalError(
+      error,
+      "Anteprima non disponibile."
+    );
     return Response.json(
       {
-        error: error instanceof Error ? error.message : "Errore durante la creazione dell'anteprima."
+        error: normalized.message
       },
       {
-        status: 500
+        status: normalized.status
       }
     );
   }

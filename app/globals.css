@@ -534,6 +534,10 @@ svg {
   margin-top: 14px;
 }
 
+.selection-summary.compact {
+  margin-top: 12px;
+}
+
 .selected-chip-wrap {
   margin-top: 14px;
   display: flex;
@@ -646,6 +650,12 @@ svg {
   color: var(--muted);
   font-size: 11px;
   line-height: 1.6;
+}
+
+.toggle-stack {
+  margin-top: 14px;
+  display: grid;
+  gap: 10px;
 }
 
 .checklist-panel {
@@ -861,9 +871,34 @@ svg {
   gap: 8px;
 }
 
+.explorer-toolbar {
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 360px);
+  gap: 14px;
+  align-items: end;
+}
+
+.explorer-search {
+  margin: 0;
+}
+
+.breadcrumbs.prominent {
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--surface-soft);
+}
+
 .breadcrumb {
   padding: 7px 10px;
   font-size: 10px;
+}
+
+.breadcrumb.current {
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface-soft));
+  border-color: var(--accent-line);
+  color: var(--accent);
 }
 
 .explorer-grid {
@@ -890,11 +925,25 @@ svg {
   text-align: left;
 }
 
+.file-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .inline-link-button {
   padding: 7px 10px;
   border: 1px solid var(--accent-line);
   background: var(--accent-soft);
   color: var(--accent);
+}
+
+.rule-preview-block {
+  margin-top: 16px;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface) 90%, transparent);
 }
 
 .file-badge.image {
@@ -1151,6 +1200,7 @@ svg {
   .two-column-grid,
   .explorer-grid,
   .multi-grid,
+  .explorer-toolbar,
   .auth-frame {
     grid-template-columns: 1fr;
   }
@@ -1176,7 +1226,8 @@ svg {
   .settings-grid,
   .info-grid,
   .multi-grid,
-  .user-detail-grid {
+  .user-detail-grid,
+  .preview-info-grid {
     grid-template-columns: 1fr;
   }
 }

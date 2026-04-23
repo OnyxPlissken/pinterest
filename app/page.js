@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { buildRulePreview } from "../lib/pinterest-format";
 
-const VIEWS = [
+const BASE_VIEWS = [
   { key: "azione", label: "Azione", icon: "play" },
-  { key: "explorer", label: "Explorer", icon: "folder" },
-  { key: "log", label: "Log", icon: "log" },
+  { key: "explorer", label: "Archivio", icon: "folder" },
+  { key: "log", label: "Storico", icon: "log" },
   { key: "regole", label: "Regole", icon: "rules" },
+  { key: "profilo", label: "Profilo", icon: "profile" },
   { key: "utenti", label: "Utenti", icon: "users" },
   { key: "impostazioni", label: "Impostazioni", icon: "settings" }
 ];
@@ -51,6 +53,16 @@ function Glyph({ name }) {
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeWidth="1.5"
+      />
+    ),
+    profile: (
+      <path
+        d="M12 12a3.2 3.2 0 1 0 0-6.4A3.2 3.2 0 0 0 12 12Zm-5.6 6c.8-2.3 3-3.7 5.6-3.7s4.8 1.4 5.6 3.7"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.6"
       />
     ),
     settings: (
@@ -170,6 +182,16 @@ function Glyph({ name }) {
         strokeLinejoin="round"
         strokeWidth="1.6"
       />
+    ),
+    open: (
+      <path
+        d="M14 5h5v5M10 14 19 5M19 13v4.2A1.8 1.8 0 0 1 17.2 19H6.8A1.8 1.8 0 0 1 5 17.2V6.8A1.8 1.8 0 0 1 6.8 5H11"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.6"
+      />
     )
   };
 
@@ -279,7 +301,8 @@ function buildRuleForm(rule) {
     linkUrl: rule?.linkUrl || "",
     thumbnailMode: rule?.thumbnailMode || "blank",
     active: rule?.active ?? true,
-    notes: rule?.notes || ""
+    isDefault: rule?.isDefault ?? false,
+    usageDescription: rule?.usageDescription || rule?.notes || ""
   };
 }
 
@@ -334,6 +357,7 @@ export default function HomePage() {
   const [level6Groups, setLevel6Groups] = useState([]);
   const [selectedTargetPaths, setSelectedTargetPaths] = useState([]);
   const [explorerData, setExplorerData] = useState(null);
+  const [explorerQuery, setExplorerQuery] = useState("");
   const [preview, setPreview] = useState(null);
   const [result, setResult] = useState(null);
   const [operationLogs, setOperationLogs] = useState([]);
@@ -568,6 +592,16 @@ export default function HomePage() {
   }, [systemInfo?.auth?.currentUser?.id, systemInfo?.auth?.currentUser?.displayName]);
 
   useEffect(() => {
+    if (systemInfo?.auth?.currentUser?.role === "admin") {
+      return;
+    }
+
+    if (activeView === "utenti") {
+      setActiveView("profilo");
+    }
+  }, [activeView, systemInfo?.auth?.currentUser?.role]);
+
+  useEffect(() => {
     const activeRules = rules.filter((rule) => rule.active);
     const fallbackRuleId =
       activeRules.find((rule) => rule.id === systemInfo?.settings?.defaultRuleId)?.id ||
@@ -695,7 +729,7 @@ export default function HomePage() {
     if (segments.length < 3) {
       setActionNotice({
         type: "error",
-        text: "Da Explorer puoi aggiungere solo cartelle di terzo livello o superiori."
+        text: "Da Archivio puoi aggiungere solo cartelle finali utili alla produzione del CSV."
       });
       return;
     }
@@ -706,7 +740,7 @@ export default function HomePage() {
     if (season && season !== nextSeason) {
       setActionNotice({
         type: "error",
-        text: "La selezione da Explorer deve appartenere alla stessa stagione gia scelta."
+        text: "La cartella scelta in Archivio deve appartenere alla stessa stagione gia selezionata."
       });
       return;
     }
@@ -722,7 +756,7 @@ export default function HomePage() {
     setResult(null);
     setActionNotice({
       type: "info",
-      text: `Cartella aggiunta dalla navigazione: ${subPath}`
+      text: `Cartella aggiunta alla selezione: ${subPath}`
     });
     setActiveView("azione");
   }
@@ -731,7 +765,7 @@ export default function HomePage() {
     if (!selectedTargetPaths.length) {
       setActionNotice({
         type: "error",
-        text: "Seleziona almeno una sotto-sotto-cartella prima di caricare l'anteprima."
+        text: "Seleziona almeno una cartella finale prima di caricare l'anteprima."
       });
       return;
     }
@@ -752,7 +786,7 @@ export default function HomePage() {
       setPreview(payload);
       setActionNotice({
         type: "success",
-        text: `Anteprima pronta su ${formatPaths(payload.sourcePaths)}`
+        text: `Anteprima pronta per ${formatPaths(payload.sourcePaths)}`
       });
       appendLog({
         action: "Anteprima",
@@ -786,7 +820,7 @@ export default function HomePage() {
     if (!previewReady) {
       setActionNotice({
         type: "error",
-        text: "Carica prima l'anteprima con le cartelle attualmente selezionate."
+        text: "Carica prima l'anteprima con la selezione corrente prima di generare il CSV."
       });
       return;
     }
@@ -806,7 +840,7 @@ export default function HomePage() {
       setResult(payload);
       setActionNotice({
         type: "success",
-        text: `CSV generato correttamente su ${formatPaths(payload.sourcePaths)}`
+        text: `CSV generato correttamente per ${formatPaths(payload.sourcePaths)}`
       });
       appendLog({
         action: "Generazione CSV",
@@ -863,10 +897,7 @@ export default function HomePage() {
   }
 
   function openProfileSettings() {
-    if (currentUser?.id) {
-      setSelectedUserId(currentUser.id);
-    }
-    setActiveView("utenti");
+    setActiveView("profilo");
     setUserNotice(null);
   }
 
@@ -1092,6 +1123,11 @@ export default function HomePage() {
     [level6Groups]
   );
   const currentUser = systemInfo?.auth?.currentUser ?? null;
+  const visibleViews = useMemo(
+    () =>
+      BASE_VIEWS.filter((item) => item.key !== "utenti" || currentUser?.role === "admin"),
+    [currentUser?.role]
+  );
   const selectedRule = useMemo(
     () => rules.find((entry) => entry.id === selectedRuleId) || null,
     [rules, selectedRuleId]
@@ -1103,6 +1139,47 @@ export default function HomePage() {
   const selectedUser = useMemo(
     () => users.find((entry) => entry.id === selectedUserId) || null,
     [users, selectedUserId]
+  );
+  const explorerQueryNormalized = explorerQuery.trim().toLowerCase();
+  const filteredExplorerFolders = useMemo(() => {
+    const folders = explorerData?.folders ?? [];
+    if (!explorerQueryNormalized) {
+      return folders;
+    }
+
+    return folders.filter((folder) =>
+      [folder.name, folder.displayPath, folder.subPath]
+        .filter(Boolean)
+        .some((value) => value.toLowerCase().includes(explorerQueryNormalized))
+    );
+  }, [explorerData?.folders, explorerQueryNormalized]);
+  const filteredExplorerFiles = useMemo(() => {
+    const files = explorerData?.files ?? [];
+    if (!explorerQueryNormalized) {
+      return files;
+    }
+
+    return files.filter((file) =>
+      [file.name, file.serverRelativeUrl, file.mimeType]
+        .filter(Boolean)
+        .some((value) => value.toLowerCase().includes(explorerQueryNormalized))
+    );
+  }, [explorerData?.files, explorerQueryNormalized]);
+  const createRulePreview = useMemo(
+    () =>
+      buildRulePreview({
+        titlePrefix: createRuleForm.titlePrefix,
+        descriptionPrefix: createRuleForm.descriptionPrefix
+      }),
+    [createRuleForm.descriptionPrefix, createRuleForm.titlePrefix]
+  );
+  const editRulePreview = useMemo(
+    () =>
+      buildRulePreview({
+        titlePrefix: editRuleForm.titlePrefix,
+        descriptionPrefix: editRuleForm.descriptionPrefix
+      }),
+    [editRuleForm.descriptionPrefix, editRuleForm.titlePrefix]
   );
   const latestSuccessLog = operationLogs.find((entry) => entry.status === "ok") ?? null;
   const previewReady =
@@ -1124,7 +1201,7 @@ export default function HomePage() {
         </div>
 
         <nav className="sidebar-nav">
-          {VIEWS.map((item) => (
+          {visibleViews.map((item) => (
             <button
               key={item.key}
               className={`sidebar-link ${activeView === item.key ? "active" : ""}`}
@@ -1166,7 +1243,7 @@ export default function HomePage() {
         <header className="topbar">
           <div>
             <div className="topbar-kicker">Dashboard operativa</div>
-            <h1>{VIEWS.find((item) => item.key === activeView)?.label ?? "Dashboard"}</h1>
+            <h1>{visibleViews.find((item) => item.key === activeView)?.label ?? "Dashboard"}</h1>
           </div>
 
           <div className="topbar-actions">
@@ -1183,11 +1260,11 @@ export default function HomePage() {
             <section className="hero-panel compact">
               <div>
                 <div className="hero-title-row">
-                  <h2>Operativita CSV</h2>
+                  <h2>Produzione CSV</h2>
                   <span className="tag">Anteprima + CSV</span>
                 </div>
                 <p className="hero-copy">
-                  Seleziona le cartelle finali, verifica l&apos;anteprima e genera il CSV.
+                  Seleziona gli asset finali, verifica il risultato e genera il file pronto per Pinterest.
                 </p>
               </div>
 
@@ -1206,8 +1283,8 @@ export default function HomePage() {
             <section className="panel">
               <div className="panel-head">
                 <div>
-                  <h3>Selezione cartelle</h3>
-                  <p>Scegli la stagione e poi le cartelle finali da usare per anteprima e CSV.</p>
+                  <h3>Selezione contenuti</h3>
+                  <p>Definisci stagione, linee creative e cartelle finali da usare per anteprima e CSV.</p>
                 </div>
               </div>
 
@@ -1245,12 +1322,19 @@ export default function HomePage() {
                 </label>
               </div>
 
+              <div className="selection-summary compact">
+                <div className="summary-item">
+                  <span>Uso regola</span>
+                  <strong>{selectedRule?.usageDescription || "Preset operativo per titoli, descrizioni e link."}</strong>
+                </div>
+              </div>
+
               <div className="multi-grid">
                 <article className="selector-panel">
                   <div className="selector-head">
                     <div>
-                      <h4>Sotto-cartelle</h4>
-                      <p>Livello 5 della stagione selezionata.</p>
+                      <h4>Linee creative</h4>
+                      <p>Seleziona i gruppi di contenuto del livello 5 della stagione scelta.</p>
                     </div>
                     <div className="inline-actions">
                       <button
@@ -1294,8 +1378,8 @@ export default function HomePage() {
                     {!level5Folders.length ? (
                       <div className="empty-block">
                         {sectionsLoading
-                          ? "Caricamento sotto-cartelle..."
-                          : "Seleziona una stagione per vedere le sotto-cartelle."}
+                          ? "Sto leggendo le linee creative disponibili..."
+                          : "Seleziona una stagione per visualizzare le linee creative disponibili."}
                       </div>
                     ) : null}
                   </div>
@@ -1305,7 +1389,7 @@ export default function HomePage() {
                   <div className="selector-head">
                     <div>
                       <h4>Cartelle finali</h4>
-                      <p>Livello 6 usato per anteprima e CSV.</p>
+                      <p>Scegli le cartelle di livello 6 da cui leggere i contenuti finali.</p>
                     </div>
                     <div className="inline-actions">
                       <button
@@ -1353,8 +1437,8 @@ export default function HomePage() {
                     {!level6Groups.length ? (
                       <div className="empty-block">
                         {collectionsLoading
-                          ? "Caricamento cartelle finali..."
-                          : "Seleziona una o piu sotto-cartelle per vedere le cartelle finali."}
+                          ? "Sto leggendo le cartelle finali disponibili..."
+                          : "Seleziona una o piu linee creative per visualizzare le cartelle finali."}
                       </div>
                     ) : null}
                   </div>
@@ -1363,19 +1447,19 @@ export default function HomePage() {
 
               <div className="selection-summary">
                 <div className="summary-item">
-                  <span>Sotto-cartelle scelte</span>
+                  <span>Linee creative selezionate</span>
                   <strong>{selectedLevel5s.length}</strong>
                 </div>
                 <div className="summary-item">
-                  <span>Percorsi finali scelti</span>
+                  <span>Cartelle finali selezionate</span>
                   <strong>{selectedTargetPaths.length}</strong>
                 </div>
                 <div className="summary-item">
-                  <span>Regola attiva</span>
+                  <span>Regola in uso</span>
                   <strong>{selectedRule?.name || "Nessuna regola"}</strong>
                 </div>
                 <div className="summary-item">
-                  <span>Modalita</span>
+                  <span>Modalita selezione</span>
                   <strong>
                     {selectedTargetPaths.length === allTargetPaths.length && allTargetPaths.length
                       ? "Tutte le cartelle finali"
@@ -1383,7 +1467,7 @@ export default function HomePage() {
                   </strong>
                 </div>
                 <div className="summary-item">
-                  <span>Regola immagini</span>
+                  <span>Criterio immagini</span>
                   <strong>Per ogni LOOK resta il file con numero finale piu basso.</strong>
                 </div>
               </div>
@@ -1529,8 +1613,8 @@ export default function HomePage() {
           <section className="panel explorer-panel">
             <div className="panel-head">
               <div>
-                <h3>Explorer SharePoint</h3>
-                <p>Naviga le cartelle reali e aggiungi alla selezione solo quelle finali utili per il CSV.</p>
+                <h3>Archivio SharePoint</h3>
+                <p>Esplora le cartelle di lavoro, cerca asset e aggiungi alla selezione solo i percorsi utili al CSV.</p>
               </div>
               <div className="inline-actions">
                 <button className="panel-button subtle" type="button" onClick={() => openExplorer("")}>
@@ -1544,23 +1628,47 @@ export default function HomePage() {
                     onClick={() => addExplorerSelection(explorerData.currentSubPath)}
                   >
                     <Glyph name="plus" />
-                    <span>Aggiungi questa cartella</span>
+                    <span>Usa questa cartella</span>
                   </button>
                 ) : null}
               </div>
             </div>
 
-            <div className="breadcrumbs">
-              {explorerData?.breadcrumbs?.map((crumb, index) => (
-                <button
-                  key={`${crumb.subPath}-${index}`}
-                  className="breadcrumb"
-                  type="button"
-                  onClick={() => openExplorer(crumb.subPath)}
-                >
-                  {crumb.label}
-                </button>
-              ))}
+            <div className="explorer-toolbar">
+              <div className="breadcrumbs prominent">
+                {explorerData?.breadcrumbs?.map((crumb, index) => (
+                  <button
+                    key={`${crumb.subPath}-${index}`}
+                    className={`breadcrumb ${index === (explorerData?.breadcrumbs?.length ?? 0) - 1 ? "current" : ""}`}
+                    type="button"
+                    onClick={() => openExplorer(crumb.subPath)}
+                  >
+                    {crumb.label}
+                  </button>
+                ))}
+              </div>
+
+              <label className="field explorer-search">
+                <span>Ricerca nella cartella aperta</span>
+                <input
+                  className="select-field"
+                  type="search"
+                  value={explorerQuery}
+                  onChange={(event) => setExplorerQuery(event.target.value)}
+                  placeholder="Cerca cartelle o file per nome"
+                />
+              </label>
+            </div>
+
+            <div className="selection-summary compact">
+              <div className="summary-item">
+                <span>Percorso corrente</span>
+                <strong>{explorerData?.displayPath || systemInfo?.settings?.baseFolder || "-"}</strong>
+              </div>
+              <div className="summary-item">
+                <span>Elementi trovati</span>
+                <strong>{filteredExplorerFolders.length + filteredExplorerFiles.length}</strong>
+              </div>
             </div>
 
             {explorerNotice ? <div className={`notice ${explorerNotice.type}`}>{explorerNotice.text}</div> : null}
@@ -1569,7 +1677,7 @@ export default function HomePage() {
               <article className="explorer-column">
                 <div className="column-head">
                   <h4>Cartelle</h4>
-                  <span>{explorerData?.folders?.length ?? 0}</span>
+                  <span>{filteredExplorerFolders.length}</span>
                 </div>
 
                 <div className="explorer-list">
@@ -1584,12 +1692,12 @@ export default function HomePage() {
                     >
                       <span className="row-main">
                         <Glyph name="back" />
-                        <strong>Cartella superiore</strong>
+                        <strong>Torna al livello precedente</strong>
                       </span>
                     </button>
                   ) : null}
 
-                  {(explorerData?.folders ?? []).map((folder) => (
+                  {filteredExplorerFolders.map((folder) => (
                     <div className="explorer-row-wrap" key={folder.subPath || folder.displayPath}>
                       <button
                         className="explorer-row"
@@ -1608,14 +1716,18 @@ export default function HomePage() {
                           type="button"
                           onClick={() => addExplorerSelection(folder.subPath)}
                         >
-                          Aggiungi
+                          Seleziona
                         </button>
                       ) : null}
                     </div>
                   ))}
 
-                  {!explorerData?.folders?.length ? (
-                    <div className="empty-block">Nessuna cartella disponibile in questo livello.</div>
+                  {!filteredExplorerFolders.length ? (
+                    <div className="empty-block">
+                      {explorerQuery
+                        ? "Nessuna cartella corrisponde alla ricerca corrente."
+                        : "Nessuna cartella disponibile in questo livello."}
+                    </div>
                   ) : null}
                 </div>
               </article>
@@ -1623,11 +1735,11 @@ export default function HomePage() {
               <article className="explorer-column">
                 <div className="column-head">
                   <h4>File</h4>
-                  <span>{explorerData?.files?.length ?? 0}</span>
+                  <span>{filteredExplorerFiles.length}</span>
                 </div>
 
                 <div className="explorer-list">
-                  {(explorerData?.files ?? []).map((file) => (
+                  {filteredExplorerFiles.map((file) => (
                     <div className="file-row" key={`${file.name}-${file.serverRelativeUrl}`}>
                       <span className="row-main">
                         <Glyph name={file.isImage ? "image" : "log"} />
@@ -1636,14 +1748,26 @@ export default function HomePage() {
                           <small>{formatBytes(file.size)}</small>
                         </span>
                       </span>
-                      <span className={`file-badge ${file.isImage ? "image" : ""}`}>
-                        {file.isImage ? "immagine" : "file"}
+                      <span className="file-actions">
+                        <span className={`file-badge ${file.isImage ? "image" : ""}`}>
+                          {file.isImage ? "immagine" : "file"}
+                        </span>
+                        {file.openUrl ? (
+                          <a className="inline-link-button" href={file.openUrl} target="_blank" rel="noreferrer">
+                            <Glyph name="open" />
+                            <span>Apri</span>
+                          </a>
+                        ) : null}
                       </span>
                     </div>
                   ))}
 
-                  {!explorerData?.files?.length ? (
-                    <div className="empty-block">Nessun file diretto in questa cartella.</div>
+                  {!filteredExplorerFiles.length ? (
+                    <div className="empty-block">
+                      {explorerQuery
+                        ? "Nessun file corrisponde alla ricerca corrente."
+                        : "Nessun file diretto in questa cartella."}
+                    </div>
                   ) : null}
                 </div>
               </article>
@@ -1655,8 +1779,8 @@ export default function HomePage() {
           <section className="panel">
             <div className="panel-head">
               <div>
-                <h3>Log operazioni</h3>
-                <p>Storico locale con cartelle SharePoint usate, conteggi e stato finale.</p>
+                <h3>Storico lavorazioni</h3>
+                <p>Storico locale delle anteprime e dei CSV generati, con cartelle SharePoint, volumi e stato finale.</p>
               </div>
               <button className="panel-button subtle" type="button" onClick={() => setOperationLogs([])}>
                 <Glyph name="refresh" />
@@ -1707,7 +1831,7 @@ export default function HomePage() {
               <div className="panel-head">
                 <div>
                   <h3>Regole</h3>
-                  <p>Scegli quali preset usare in Azione e mantieni un default operativo controllato.</p>
+                  <p>Gestisci i preset editoriali che governano titolo, descrizione, link e impostazione predefinita.</p>
                 </div>
                 {currentUser?.role === "admin" ? (
                   <button
@@ -1735,13 +1859,13 @@ export default function HomePage() {
                   <strong>{rules.filter((rule) => rule.active).length}</strong>
                 </div>
                 <div className="info-card">
-                  <span>Default operativo</span>
+                  <span>Regola predefinita</span>
                   <strong>
                     {rules.find((rule) => rule.id === systemInfo?.settings?.defaultRuleId)?.name || "-"}
                   </strong>
                 </div>
                 <div className="info-card">
-                  <span>Storage</span>
+                  <span>Archivio configurazione</span>
                   <strong>{systemInfo?.adminStore?.storageLabel || "Caricamento..."}</strong>
                 </div>
               </div>
@@ -1760,20 +1884,20 @@ export default function HomePage() {
                     onClick={() => setSelectedRuleEditorId(rule.id)}
                   >
                     <div className="user-row-main">
-                      <div className="user-avatar">{(rule.name || "R").slice(0, 2).toUpperCase()}</div>
-                      <div className="user-copy">
-                        <strong>{rule.name}</strong>
-                        <span>{rule.titlePrefix}</span>
-                      </div>
-                    </div>
-                    <div className="user-row-meta">
-                      <span className={`status-pill ${rule.active ? "ok" : "error"}`}>
-                        {rule.active ? "Attiva" : "Disattiva"}
-                      </span>
-                      <small>{rule.thumbnailMode === "level5" ? "Thumbnail livello 5" : "Thumbnail vuota"}</small>
-                    </div>
-                  </button>
-                ))}
+                          <div className="user-avatar">{(rule.name || "R").slice(0, 2).toUpperCase()}</div>
+                          <div className="user-copy">
+                            <strong>{rule.name}</strong>
+                            <span>{rule.usageDescription || rule.titlePrefix}</span>
+                          </div>
+                        </div>
+                        <div className="user-row-meta">
+                          <span className={`status-pill ${rule.active ? "ok" : "error"}`}>
+                            {rule.active ? "Attiva" : "Disattiva"}
+                          </span>
+                          <small>{rule.isDefault ? "Predefinita" : rule.previewSection}</small>
+                        </div>
+                      </button>
+                    ))}
 
                 {!rules.length ? <div className="empty-block">Nessuna regola configurata.</div> : null}
               </div>
@@ -1782,8 +1906,8 @@ export default function HomePage() {
             <article className="panel">
               <div className="panel-head">
                 <div>
-                  <h3>Gestione regole</h3>
-                  <p>Crea nuove regole e aggiorna quelle esistenti prima di avviare anteprima o CSV.</p>
+                  <h3>Impostazione regole</h3>
+                  <p>Definisci i preset da usare per i contenuti Pinterest e verifica subito il risultato finale.</p>
                 </div>
               </div>
 
@@ -1808,6 +1932,21 @@ export default function HomePage() {
                             }))
                           }
                           placeholder="Lookbook standard"
+                        />
+                      </label>
+                      <label className="field">
+                        <span>Descrizione d&apos;uso</span>
+                        <input
+                          className="select-field"
+                          type="text"
+                          value={createRuleForm.usageDescription}
+                          onChange={(event) =>
+                            setCreateRuleForm((current) => ({
+                              ...current,
+                              usageDescription: event.target.value
+                            }))
+                          }
+                          placeholder="Per lookbook collezione principale"
                         />
                       </label>
                       <label className="field">
@@ -1871,36 +2010,53 @@ export default function HomePage() {
                           <option value="level5">Nome livello 5</option>
                         </select>
                       </label>
-                      <label className="field">
-                        <span>Note</span>
+                    </div>
+
+                    <div className="toggle-stack">
+                      <label className="toggle-line">
                         <input
-                          className="select-field"
-                          type="text"
-                          value={createRuleForm.notes}
+                          type="checkbox"
+                          checked={createRuleForm.active}
                           onChange={(event) =>
                             setCreateRuleForm((current) => ({
                               ...current,
-                              notes: event.target.value
+                              active: event.target.checked
                             }))
                           }
-                          placeholder="Uso editoriale, capsule, test..."
                         />
+                        <span>Regola attiva</span>
+                      </label>
+                      <label className="toggle-line">
+                        <input
+                          type="checkbox"
+                          checked={createRuleForm.isDefault}
+                          onChange={(event) =>
+                            setCreateRuleForm((current) => ({
+                              ...current,
+                              isDefault: event.target.checked
+                            }))
+                          }
+                        />
+                        <span>Usa come regola predefinita</span>
                       </label>
                     </div>
 
-                    <label className="toggle-line">
-                      <input
-                        type="checkbox"
-                        checked={createRuleForm.active}
-                        onChange={(event) =>
-                          setCreateRuleForm((current) => ({
-                            ...current,
-                            active: event.target.checked
-                          }))
-                        }
-                      />
-                      <span>Regola attiva</span>
-                    </label>
+                    <div className="rule-preview-block">
+                      <div className="editor-block-head">
+                        <h4>Anteprima regola</h4>
+                        <span className="tag soft">{createRulePreview.section}</span>
+                      </div>
+                      <div className="preview-info-grid">
+                        <div className="preview-info-card">
+                          <span>Title</span>
+                          <strong>{createRulePreview.title || "-"}</strong>
+                        </div>
+                        <div className="preview-info-card">
+                          <span>Description</span>
+                          <strong>{createRulePreview.description || "-"}</strong>
+                        </div>
+                      </div>
+                    </div>
 
                     <div className="action-row">
                       <button className="primary-button" type="button" onClick={handleCreateRule} disabled={rulesLoading}>
@@ -1929,6 +2085,20 @@ export default function HomePage() {
                                 setEditRuleForm((current) => ({
                                   ...current,
                                   name: event.target.value
+                                }))
+                              }
+                            />
+                          </label>
+                          <label className="field">
+                            <span>Descrizione d&apos;uso</span>
+                            <input
+                              className="select-field"
+                              type="text"
+                              value={editRuleForm.usageDescription}
+                              onChange={(event) =>
+                                setEditRuleForm((current) => ({
+                                  ...current,
+                                  usageDescription: event.target.value
                                 }))
                               }
                             />
@@ -1991,35 +2161,36 @@ export default function HomePage() {
                               <option value="level5">Nome livello 5</option>
                             </select>
                           </label>
-                          <label className="field">
-                            <span>Note</span>
+                        </div>
+
+                        <div className="toggle-stack">
+                          <label className="toggle-line">
                             <input
-                              className="select-field"
-                              type="text"
-                              value={editRuleForm.notes}
+                              type="checkbox"
+                              checked={editRuleForm.active}
                               onChange={(event) =>
                                 setEditRuleForm((current) => ({
                                   ...current,
-                                  notes: event.target.value
+                                  active: event.target.checked
                                 }))
                               }
                             />
+                            <span>Regola attiva</span>
+                          </label>
+                          <label className="toggle-line">
+                            <input
+                              type="checkbox"
+                              checked={editRuleForm.isDefault}
+                              onChange={(event) =>
+                                setEditRuleForm((current) => ({
+                                  ...current,
+                                  isDefault: event.target.checked
+                                }))
+                              }
+                            />
+                            <span>Usa come regola predefinita</span>
                           </label>
                         </div>
-
-                        <label className="toggle-line">
-                          <input
-                            type="checkbox"
-                            checked={editRuleForm.active}
-                            onChange={(event) =>
-                              setEditRuleForm((current) => ({
-                                ...current,
-                                active: event.target.checked
-                              }))
-                            }
-                          />
-                          <span>Regola attiva</span>
-                        </label>
 
                         <div className="user-detail-grid">
                           <div className="summary-item">
@@ -2029,6 +2200,27 @@ export default function HomePage() {
                           <div className="summary-item">
                             <span>Aggiornata</span>
                             <strong>{formatDateTime(selectedRuleEditor.updatedAt)}</strong>
+                          </div>
+                          <div className="summary-item">
+                            <span>Stato</span>
+                            <strong>{selectedRuleEditor.isDefault ? "Predefinita" : "Secondaria"}</strong>
+                          </div>
+                        </div>
+
+                        <div className="rule-preview-block">
+                          <div className="editor-block-head">
+                            <h4>Anteprima regola</h4>
+                            <span className="tag soft">{editRulePreview.section}</span>
+                          </div>
+                          <div className="preview-info-grid">
+                            <div className="preview-info-card">
+                              <span>Title</span>
+                              <strong>{editRulePreview.title || "-"}</strong>
+                            </div>
+                            <div className="preview-info-card">
+                              <span>Description</span>
+                              <strong>{editRulePreview.description || "-"}</strong>
+                            </div>
                           </div>
                         </div>
 
@@ -2045,26 +2237,20 @@ export default function HomePage() {
                   </div>
                 </div>
               ) : (
-                <div className="empty-block">Solo un amministratore puo creare o modificare le regole.</div>
+                <div className="empty-block">Solo un amministratore puo creare o aggiornare le regole editoriali.</div>
               )}
             </article>
           </section>
         ) : null}
 
-        {activeView === "utenti" ? (
+        {activeView === "profilo" ? (
           <section className="two-column-grid">
             <article className="panel">
               <div className="panel-head">
                 <div>
-                  <h3>Utenti</h3>
-                  <p>Gestisci gli accessi alla dashboard e controlla lo stato delle route pubbliche.</p>
+                  <h3>Profilo</h3>
+                  <p>Aggiorna i dati del tuo account e mantieni allineate le credenziali di accesso alla piattaforma.</p>
                 </div>
-                {currentUser?.role === "admin" ? (
-                  <button className="panel-button subtle" type="button" onClick={() => refreshUsers()} disabled={usersLoading}>
-                    <Glyph name="refresh" />
-                    <span>{usersLoading ? "Aggiornamento..." : "Aggiorna"}</span>
-                  </button>
-                ) : null}
               </div>
 
               <div className="info-grid">
@@ -2086,66 +2272,185 @@ export default function HomePage() {
                   </strong>
                 </div>
                 <div className="info-card">
-                  <span>Media pubblici</span>
-                  <strong>/media aperta</strong>
+                  <span>Account</span>
+                  <strong>{currentUser?.username || "-"}</strong>
                 </div>
               </div>
 
-              {currentUser?.role === "admin" ? (
-                <>
-                  {!systemInfo?.auth?.usersPersistent && systemInfo?.auth?.usersIssue ? (
-                    <div className="notice info">{systemInfo.auth.usersIssue}</div>
-                  ) : null}
+              {!systemInfo?.auth?.usersPersistent && systemInfo?.auth?.usersIssue ? (
+                <div className="notice info">{systemInfo.auth.usersIssue}</div>
+              ) : null}
 
-                  <div className="user-list">
-                    {users.map((user) => (
-                      <button
-                        key={user.id}
-                        className={`user-row ${selectedUserId === user.id ? "active" : ""}`}
-                        type="button"
-                        onClick={() => setSelectedUserId(user.id)}
-                      >
-                        <div className="user-row-main">
-                          <div className="user-avatar">{getInitials(user.displayName)}</div>
-                          <div className="user-copy">
-                            <strong>{user.displayName}</strong>
-                            <span>{user.username}</span>
-                          </div>
-                        </div>
-                        <div className="user-row-meta">
-                          <span className={`status-pill ${user.active ? "ok" : "error"}`}>
-                            {user.active ? "Attivo" : "Disattivo"}
-                          </span>
-                          <small>{formatRole(user.role)}</small>
-                        </div>
-                      </button>
-                    ))}
-
-                    {!users.length ? <div className="empty-block">Nessun utente configurato.</div> : null}
-                  </div>
-                </>
-              ) : (
-                <div className="empty-block">
-                  Usa il pannello a destra per aggiornare il tuo nome visibile o la password di accesso.
+              <div className="selection-summary">
+                <div className="summary-item">
+                  <span>Nome visibile</span>
+                  <strong>{currentUser?.displayName || "-"}</strong>
                 </div>
-              )}
+                <div className="summary-item">
+                  <span>Ruolo</span>
+                  <strong>{currentUser ? formatRole(currentUser.role) : "-"}</strong>
+                </div>
+                <div className="summary-item">
+                  <span>Ultimo accesso</span>
+                  <strong>{formatDateTime(currentUser?.lastLoginAt)}</strong>
+                </div>
+              </div>
             </article>
 
             <article className="panel">
               <div className="panel-head">
                 <div>
-                  <h3>{currentUser?.role === "admin" ? "Gestione accessi" : "Profilo utente"}</h3>
-                  <p>
-                    {currentUser?.role === "admin"
-                      ? "Crea un nuovo utente oppure aggiorna quello selezionato."
-                      : "Aggiorna le impostazioni del tuo account."}
-                  </p>
+                  <h3>Dati account</h3>
+                  <p>Modifica il nome visibile e, se necessario, aggiorna la password personale.</p>
                 </div>
               </div>
 
               {userNotice ? <div className={`notice ${userNotice.type}`}>{userNotice.text}</div> : null}
 
-              {currentUser?.role === "admin" ? (
+              <div className="editor-block">
+                <div className="editor-block-head">
+                  <h4>Impostazioni profilo</h4>
+                  <span className="tag soft">{currentUser?.username || "Utente"}</span>
+                </div>
+
+                <div className="form-grid">
+                  <label className="field">
+                    <span>Username</span>
+                    <input
+                      className="select-field"
+                      type="text"
+                      value={currentUser?.username || ""}
+                      readOnly
+                    />
+                  </label>
+                  <label className="field">
+                    <span>Nome visibile</span>
+                    <input
+                      className="select-field"
+                      type="text"
+                      value={profileForm.displayName}
+                      onChange={(event) =>
+                        setProfileForm((current) => ({
+                          ...current,
+                          displayName: event.target.value
+                        }))
+                      }
+                    />
+                  </label>
+                  <label className="field">
+                    <span>Nuova password</span>
+                    <input
+                      className="select-field"
+                      type="password"
+                      value={profileForm.password}
+                      onChange={(event) =>
+                        setProfileForm((current) => ({
+                          ...current,
+                          password: event.target.value
+                        }))
+                      }
+                      placeholder="Lascia vuoto se non devi aggiornarla"
+                    />
+                  </label>
+                  <label className="field">
+                    <span>Ruolo</span>
+                    <input
+                      className="select-field"
+                      type="text"
+                      value={formatRole(currentUser?.role)}
+                      readOnly
+                    />
+                  </label>
+                </div>
+
+                <div className="action-row">
+                  <button className="primary-button" type="button" onClick={handleUpdateOwnProfile} disabled={usersLoading}>
+                    <Glyph name="check" />
+                    <span>{usersLoading ? "Salvataggio..." : "Salva profilo"}</span>
+                  </button>
+                </div>
+              </div>
+            </article>
+          </section>
+        ) : null}
+
+        {activeView === "utenti" ? (
+          currentUser?.role === "admin" ? (
+            <section className="two-column-grid">
+              <article className="panel">
+                <div className="panel-head">
+                  <div>
+                    <h3>Utenti</h3>
+                    <p>Gestisci gli accessi alla dashboard e assegna ruoli coerenti con il lavoro del team.</p>
+                  </div>
+                  <button className="panel-button subtle" type="button" onClick={() => refreshUsers()} disabled={usersLoading}>
+                    <Glyph name="refresh" />
+                    <span>{usersLoading ? "Aggiornamento..." : "Aggiorna"}</span>
+                  </button>
+                </div>
+
+                <div className="info-grid">
+                  <div className="info-card">
+                    <span>Utenti attivi</span>
+                    <strong>{users.filter((user) => user.active).length}</strong>
+                  </div>
+                  <div className="info-card">
+                    <span>Amministratori</span>
+                    <strong>{users.filter((user) => user.role === "admin" && user.active).length}</strong>
+                  </div>
+                  <div className="info-card">
+                    <span>Archivio utenti</span>
+                    <strong>
+                      {systemInfo?.auth?.usersStorageLabel ||
+                        (systemInfo?.auth?.usersPersistent
+                          ? "SharePoint cifrato"
+                          : systemInfo?.auth?.usersIssue || "Storage non disponibile")}
+                    </strong>
+                  </div>
+                </div>
+
+                {!systemInfo?.auth?.usersPersistent && systemInfo?.auth?.usersIssue ? (
+                  <div className="notice info">{systemInfo.auth.usersIssue}</div>
+                ) : null}
+
+                <div className="user-list">
+                  {users.map((user) => (
+                    <button
+                      key={user.id}
+                      className={`user-row ${selectedUserId === user.id ? "active" : ""}`}
+                      type="button"
+                      onClick={() => setSelectedUserId(user.id)}
+                    >
+                      <div className="user-row-main">
+                        <div className="user-avatar">{getInitials(user.displayName)}</div>
+                        <div className="user-copy">
+                          <strong>{user.displayName}</strong>
+                          <span>{user.username}</span>
+                        </div>
+                      </div>
+                      <div className="user-row-meta">
+                        <span className={`status-pill ${user.active ? "ok" : "error"}`}>
+                          {user.active ? "Attivo" : "Disattivo"}
+                        </span>
+                        <small>{formatRole(user.role)}</small>
+                      </div>
+                    </button>
+                  ))}
+
+                  {!users.length ? <div className="empty-block">Nessun utente configurato.</div> : null}
+                </div>
+              </article>
+
+              <article className="panel">
+                <div className="panel-head">
+                  <div>
+                    <h3>Gestione accessi</h3>
+                    <p>Crea un nuovo utente oppure aggiorna i dati dell&apos;account selezionato.</p>
+                  </div>
+                </div>
+
+                {userNotice ? <div className={`notice ${userNotice.type}`}>{userNotice.text}</div> : null}
+
                 <div className="user-editor-stack">
                   <div className="editor-block">
                     <div className="editor-block-head">
@@ -2277,7 +2582,7 @@ export default function HomePage() {
                                   password: event.target.value
                                 }))
                               }
-                              placeholder="Lascia vuoto per non cambiarla"
+                              placeholder="Lascia vuoto se non devi aggiornarla"
                             />
                           </label>
                           <label className="field">
@@ -2335,73 +2640,9 @@ export default function HomePage() {
                     )}
                   </div>
                 </div>
-              ) : (
-                <div className="editor-block">
-                  <div className="editor-block-head">
-                    <h4>Impostazioni profilo</h4>
-                    <span className="tag soft">{currentUser?.username || "Utente"}</span>
-                  </div>
-
-                  <div className="form-grid">
-                    <label className="field">
-                      <span>Username</span>
-                      <input
-                        className="select-field"
-                        type="text"
-                        value={currentUser?.username || ""}
-                        readOnly
-                      />
-                    </label>
-                    <label className="field">
-                      <span>Nome visibile</span>
-                      <input
-                        className="select-field"
-                        type="text"
-                        value={profileForm.displayName}
-                        onChange={(event) =>
-                          setProfileForm((current) => ({
-                            ...current,
-                            displayName: event.target.value
-                          }))
-                        }
-                      />
-                    </label>
-                    <label className="field">
-                      <span>Nuova password</span>
-                      <input
-                        className="select-field"
-                        type="password"
-                        value={profileForm.password}
-                        onChange={(event) =>
-                          setProfileForm((current) => ({
-                            ...current,
-                            password: event.target.value
-                          }))
-                        }
-                        placeholder="Lascia vuoto per non cambiarla"
-                      />
-                    </label>
-                    <label className="field">
-                      <span>Ruolo</span>
-                      <input
-                        className="select-field"
-                        type="text"
-                        value={formatRole(currentUser?.role)}
-                        readOnly
-                      />
-                    </label>
-                  </div>
-
-                  <div className="action-row">
-                    <button className="primary-button" type="button" onClick={handleUpdateOwnProfile} disabled={usersLoading}>
-                      <Glyph name="check" />
-                      <span>{usersLoading ? "Salvataggio..." : "Salva profilo"}</span>
-                    </button>
-                  </div>
-                </div>
-              )}
-            </article>
-          </section>
+              </article>
+            </section>
+          ) : null
         ) : null}
 
         {activeView === "impostazioni" ? (
@@ -2409,8 +2650,8 @@ export default function HomePage() {
             <article className="panel">
               <div className="panel-head">
                 <div>
-                  <h3>Impostazioni operative</h3>
-                  <p>Modifica solo i parametri operativi dell&apos;app; credenziali e segreti restano in environment.</p>
+                  <h3>Impostazioni piattaforma</h3>
+                  <p>Definisci i parametri di lavoro dell&apos;app. Credenziali e segreti restano protetti lato ambiente.</p>
                 </div>
               </div>
 
@@ -2551,7 +2792,7 @@ export default function HomePage() {
                   </div>
                 </>
               ) : (
-                <div className="empty-block">Solo un amministratore puo modificare le impostazioni operative.</div>
+                <div className="empty-block">Solo un amministratore puo aggiornare le impostazioni della piattaforma.</div>
               )}
             </article>
 
@@ -2559,7 +2800,7 @@ export default function HomePage() {
               <div className="panel-head">
                 <div>
                   <h3>Stato piattaforma</h3>
-                  <p>Valori di contesto utili per capire cosa governa l&apos;app e cosa resta protetto.</p>
+                  <p>Panoramica sintetica dei parametri che governano il lavoro del team e delle aree protette.</p>
                 </div>
               </div>
 
