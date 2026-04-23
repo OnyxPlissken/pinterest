@@ -247,7 +247,6 @@ svg {
 
 .topbar,
 .hero-panel,
-.metric-card,
 .panel,
 .footer-note,
 .boot-state {
@@ -365,6 +364,11 @@ svg {
   gap: 18px;
 }
 
+.hero-panel.compact {
+  padding: 14px 16px;
+  align-items: center;
+}
+
 .hero-title-row {
   display: flex;
   align-items: center;
@@ -386,6 +390,13 @@ svg {
   line-height: 1.7;
 }
 
+.hero-inline {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .hero-path {
   min-width: 260px;
   padding: 10px 12px;
@@ -394,7 +405,6 @@ svg {
   background: var(--surface-soft);
 }
 
-.metric-row,
 .content-grid,
 .two-column-grid,
 .explorer-grid,
@@ -405,37 +415,6 @@ svg {
 .multi-grid {
   display: grid;
   gap: 14px;
-}
-
-.metric-row {
-  margin-top: 14px;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
-.metric-card {
-  padding: 14px 16px;
-}
-
-.metric-label {
-  color: var(--muted);
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-}
-
-.metric-value {
-  margin-top: 14px;
-  display: block;
-  font-size: 22px;
-  font-weight: 800;
-  letter-spacing: -0.05em;
-}
-
-.metric-note {
-  margin-top: 10px;
-  display: block;
-  color: var(--muted);
-  font-size: 11px;
 }
 
 .content-grid {
@@ -1170,10 +1149,6 @@ svg {
 }
 
 @media (max-width: 1320px) {
-  .metric-row {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
   .content-grid,
   .two-column-grid,
   .explorer-grid,
@@ -1199,7 +1174,6 @@ svg {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .metric-row,
   .form-grid,
   .settings-grid,
   .info-grid,
@@ -1221,7 +1195,6 @@ svg {
   .topbar,
   .hero-panel,
   .panel,
-  .metric-card,
   .footer-note,
   .boot-state {
     border-radius: 14px;
@@ -1244,10 +1217,6 @@ svg {
   }
 
   .sidebar-nav {
-    grid-template-columns: 1fr;
-  }
-
-  .metric-row {
     grid-template-columns: 1fr;
   }
 

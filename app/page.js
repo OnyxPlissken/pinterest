@@ -1047,35 +1047,11 @@ export default function HomePage() {
     () => users.find((entry) => entry.id === selectedUserId) || null,
     [users, selectedUserId]
   );
-  const latestLog = operationLogs[0] ?? null;
   const latestSuccessLog = operationLogs.find((entry) => entry.status === "ok") ?? null;
   const previewReady =
     preview &&
     preview.selectedSubPaths?.length === selectedTargetPaths.length &&
     selectedTargetPaths.every((path) => preview.selectedSubPaths.includes(path));
-
-  const metrics = [
-    {
-      label: "Stagione",
-      value: season || "Non selezionata",
-      note: "livello 4"
-    },
-    {
-      label: "Sotto-cartelle",
-      value: selectedLevel5s.length || 0,
-      note: `${level5Folders.length} disponibili`
-    },
-    {
-      label: "Sotto-sotto-cartelle",
-      value: selectedTargetPaths.length || 0,
-      note: `${allTargetPaths.length} disponibili`
-    },
-    {
-      label: "Ultimo stato",
-      value: getStatusLabel(latestLog),
-      note: latestLog ? formatDateTime(latestLog.timestamp) : "nessuna operazione"
-    }
-  ];
 
   return (
     <main className="workspace-shell">
@@ -1148,36 +1124,31 @@ export default function HomePage() {
           </div>
         </header>
 
-        <section className="hero-panel">
-          <div>
-            <div className="hero-title-row">
-              <h2>Selezione multipla cartelle</h2>
-              <span className="tag">Anteprima + CSV</span>
-            </div>
-            <p className="hero-copy">
-              Scegli una stagione e costruisci i percorsi finali da usare per l&apos;anteprima e per
-              la generazione del CSV.
-            </p>
-          </div>
-
-          <div className="hero-path">
-            <span className="meta-label">Percorsi finali selezionati</span>
-            <strong>{formatPaths(selectedTargetPaths)}</strong>
-          </div>
-        </section>
-
-        <section className="metric-row">
-          {metrics.map((metric) => (
-            <article className="metric-card" key={metric.label}>
-              <span className="metric-label">{metric.label}</span>
-              <strong className="metric-value">{metric.value}</strong>
-              <span className="metric-note">{metric.note}</span>
-            </article>
-          ))}
-        </section>
-
         {activeView === "azione" ? (
           <>
+            <section className="hero-panel compact">
+              <div>
+                <div className="hero-title-row">
+                  <h2>Operativita CSV</h2>
+                  <span className="tag">Anteprima + CSV</span>
+                </div>
+                <p className="hero-copy">
+                  Seleziona le cartelle finali, verifica l&apos;anteprima e genera il CSV.
+                </p>
+              </div>
+
+              <div className="hero-inline">
+                <div className="hero-path">
+                  <span className="meta-label">Percorsi</span>
+                  <strong>{formatPaths(selectedTargetPaths)}</strong>
+                </div>
+                <div className="hero-path">
+                  <span className="meta-label">Regola</span>
+                  <strong>{selectedRule?.name || "Nessuna regola"}</strong>
+                </div>
+              </div>
+            </section>
+
             <section className="panel">
               <div className="panel-head">
                 <div>
