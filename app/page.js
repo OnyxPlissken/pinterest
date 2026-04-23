@@ -264,6 +264,13 @@ function buildEditUserForm(user) {
   };
 }
 
+function buildProfileForm(user) {
+  return {
+    displayName: user?.displayName || "",
+    password: ""
+  };
+}
+
 function buildRuleForm(rule) {
   return {
     name: rule?.name || "",
@@ -342,6 +349,7 @@ export default function HomePage() {
   const [selectedUserId, setSelectedUserId] = useState("");
   const [createUserForm, setCreateUserForm] = useState(buildCreateUserForm());
   const [editUserForm, setEditUserForm] = useState(buildEditUserForm());
+  const [profileForm, setProfileForm] = useState(buildProfileForm());
   const [createRuleForm, setCreateRuleForm] = useState(buildRuleForm());
   const [editRuleForm, setEditRuleForm] = useState(buildRuleForm());
   const [settingsForm, setSettingsForm] = useState(buildSettingsForm());
@@ -554,6 +562,10 @@ export default function HomePage() {
     const nextUser = users.find((entry) => entry.id === selectedUserId) || null;
     setEditUserForm(buildEditUserForm(nextUser));
   }, [users, selectedUserId]);
+
+  useEffect(() => {
+    setProfileForm(buildProfileForm(systemInfo?.auth?.currentUser));
+  }, [systemInfo?.auth?.currentUser?.id, systemInfo?.auth?.currentUser?.displayName]);
 
   useEffect(() => {
     const activeRules = rules.filter((rule) => rule.active);
@@ -850,6 +862,14 @@ export default function HomePage() {
     window.location.assign("/login");
   }
 
+  function openProfileSettings() {
+    if (currentUser?.id) {
+      setSelectedUserId(currentUser.id);
+    }
+    setActiveView("utenti");
+    setUserNotice(null);
+  }
+
   async function handleCreateUser() {
     setUsersLoading(true);
     setUserNotice(null);
@@ -911,6 +931,43 @@ export default function HomePage() {
       setUserNotice({
         type: "error",
         text: error instanceof Error ? error.message : "Errore durante l'aggiornamento utente."
+      });
+    } finally {
+      setUsersLoading(false);
+    }
+  }
+
+  async function handleUpdateOwnProfile() {
+    if (!currentUser?.id) {
+      return;
+    }
+
+    setUsersLoading(true);
+    setUserNotice(null);
+
+    try {
+      const payload = await fetchJson(`/api/users/${currentUser.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(profileForm)
+      });
+
+      setProfileForm((current) => ({
+        ...current,
+        displayName: payload.user?.displayName || current.displayName,
+        password: ""
+      }));
+      await refreshSystemState();
+      setUserNotice({
+        type: "success",
+        text: "Profilo aggiornato."
+      });
+    } catch (error) {
+      setUserNotice({
+        type: "error",
+        text: error instanceof Error ? error.message : "Errore durante l'aggiornamento profilo."
       });
     } finally {
       setUsersLoading(false);
@@ -1089,9 +1146,17 @@ export default function HomePage() {
           </div>
           <div className="meta-user">
             <div className="meta-avatar">{getInitials(currentUser?.displayName)}</div>
-            <div>
+            <div className="meta-user-copy">
               <strong>{currentUser?.displayName || "Sessione in avvio"}</strong>
               <span>{currentUser ? formatRole(currentUser.role) : "Caricamento utente"}</span>
+            </div>
+            <div className="meta-user-actions">
+              <button className="icon-button compact" type="button" onClick={openProfileSettings} title="Profilo utente">
+                <Glyph name="settings" />
+              </button>
+              <button className="icon-button compact" type="button" onClick={handleLogout} title="Esci">
+                <Glyph name="logout" />
+              </button>
             </div>
           </div>
         </div>
@@ -1105,20 +1170,9 @@ export default function HomePage() {
           </div>
 
           <div className="topbar-actions">
-            <span className="live-badge">Dati live</span>
-            {currentUser ? (
-              <div className="user-pill">
-                <span className="user-pill-name">{currentUser.displayName}</span>
-                <span className="user-pill-role">{formatRole(currentUser.role)}</span>
-              </div>
-            ) : null}
             <button className="icon-button" type="button" onClick={switchTheme}>
               <Glyph name={theme === "dark" ? "sun" : "moon"} />
               <span>{theme === "dark" ? "Tema chiaro" : "Tema scuro"}</span>
-            </button>
-            <button className="panel-button subtle" type="button" onClick={handleLogout}>
-              <Glyph name="logout" />
-              <span>Esci</span>
             </button>
             <div className="topbar-wordmark">ISAIA</div>
           </div>
@@ -2071,15 +2125,21 @@ export default function HomePage() {
                   </div>
                 </>
               ) : (
-                <div className="empty-block">Solo un amministratore puo creare o modificare utenti.</div>
+                <div className="empty-block">
+                  Usa il pannello a destra per aggiornare il tuo nome visibile o la password di accesso.
+                </div>
               )}
             </article>
 
             <article className="panel">
               <div className="panel-head">
                 <div>
-                  <h3>Gestione accessi</h3>
-                  <p>Crea un nuovo utente oppure aggiorna quello selezionato.</p>
+                  <h3>{currentUser?.role === "admin" ? "Gestione accessi" : "Profilo utente"}</h3>
+                  <p>
+                    {currentUser?.role === "admin"
+                      ? "Crea un nuovo utente oppure aggiorna quello selezionato."
+                      : "Aggiorna le impostazioni del tuo account."}
+                  </p>
                 </div>
               </div>
 
@@ -2276,7 +2336,69 @@ export default function HomePage() {
                   </div>
                 </div>
               ) : (
-                <div className="empty-block">Solo un amministratore puo modificare gli utenti.</div>
+                <div className="editor-block">
+                  <div className="editor-block-head">
+                    <h4>Impostazioni profilo</h4>
+                    <span className="tag soft">{currentUser?.username || "Utente"}</span>
+                  </div>
+
+                  <div className="form-grid">
+                    <label className="field">
+                      <span>Username</span>
+                      <input
+                        className="select-field"
+                        type="text"
+                        value={currentUser?.username || ""}
+                        readOnly
+                      />
+                    </label>
+                    <label className="field">
+                      <span>Nome visibile</span>
+                      <input
+                        className="select-field"
+                        type="text"
+                        value={profileForm.displayName}
+                        onChange={(event) =>
+                          setProfileForm((current) => ({
+                            ...current,
+                            displayName: event.target.value
+                          }))
+                        }
+                      />
+                    </label>
+                    <label className="field">
+                      <span>Nuova password</span>
+                      <input
+                        className="select-field"
+                        type="password"
+                        value={profileForm.password}
+                        onChange={(event) =>
+                          setProfileForm((current) => ({
+                            ...current,
+                            password: event.target.value
+                          }))
+                        }
+                        placeholder="Lascia vuoto per non cambiarla"
+                      />
+                    </label>
+                    <label className="field">
+                      <span>Ruolo</span>
+                      <input
+                        className="select-field"
+                        type="text"
+                        value={formatRole(currentUser?.role)}
+                        readOnly
+                      />
+                    </label>
+                  </div>
+
+                  <div className="action-row">
+                    <button className="primary-button" type="button" onClick={handleUpdateOwnProfile} disabled={usersLoading}>
+                      <Glyph name="check" />
+                      <span>{usersLoading ? "Salvataggio..." : "Salva profilo"}</span>
+                    </button>
+                  </div>
+                </div>
               )}
             </article>
           </section>

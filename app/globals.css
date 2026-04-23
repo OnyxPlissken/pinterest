@@ -230,6 +230,17 @@ svg {
   gap: 10px;
 }
 
+.meta-user-copy {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.meta-user-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .meta-avatar {
   width: 34px;
   height: 34px;
@@ -339,6 +350,12 @@ svg {
   padding: 9px 12px;
   border: 1px solid var(--line);
   background: var(--surface-soft);
+}
+
+.icon-button.compact {
+  padding: 8px;
+  min-width: 36px;
+  justify-content: center;
 }
 
 .icon-button:hover,
@@ -935,28 +952,6 @@ svg {
 .footer-note {
   color: var(--muted);
   font-size: 11px;
-}
-
-.user-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
-  border-radius: 12px;
-  border: 1px solid var(--line);
-  background: var(--surface-soft);
-}
-
-.user-pill-name {
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.user-pill-role {
-  color: var(--muted);
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
 }
 
 .user-list,
