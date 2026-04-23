@@ -1,16 +1,38 @@
+import { NextResponse } from "next/server";
+
 import { getConfig } from "../../../lib/config";
+import { getSessionFromRequest } from "../../../lib/session";
+import { listUsers } from "../../../lib/user-store";
 
 export const runtime = "nodejs";
 
-export async function GET() {
-  const config = getConfig();
+export async function GET(request) {
+  const session = await getSessionFromRequest(request);
 
-  return Response.json({
-    basicAuth: {
-      enabled: Boolean(process.env.BASIC_AUTH_USERNAME && process.env.BASIC_AUTH_PASSWORD),
-      username: process.env.BASIC_AUTH_USERNAME || "",
+  if (!session) {
+    return NextResponse.json(
+      {
+        error: "Sessione non valida."
+      },
+      {
+        status: 401
+      }
+    );
+  }
+
+  const config = getConfig();
+  const userStore = await listUsers().catch(() => ({
+    users: [],
+    persistent: false
+  }));
+
+  return NextResponse.json({
+    auth: {
+      mode: "login",
+      currentUser: session,
+      usersPersistent: userStore.persistent,
       protectedRoutes: ["/", "/api/explorer", "/api/preview", "/api/generate", "/api/system"],
-      publicRoutes: ["/media", "/api/health"]
+      publicRoutes: ["/login", "/media", "/api/health"]
     },
     settings: {
       sharePointUrl: `https://${config.sharePoint.hostname}${config.sharePoint.sitePath}`,

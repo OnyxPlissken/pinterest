@@ -6,7 +6,7 @@ const VIEWS = [
   { key: "azione", label: "Azione", icon: "play" },
   { key: "explorer", label: "Explorer", icon: "folder" },
   { key: "log", label: "Log", icon: "log" },
-  { key: "accessi", label: "Utenti Basic", icon: "users" },
+  { key: "utenti", label: "Utenti", icon: "users" },
   { key: "impostazioni", label: "Impostazioni", icon: "settings" }
 ];
 
@@ -149,6 +149,16 @@ function Glyph({ name }) {
         strokeLinejoin="round"
         strokeWidth="1.8"
       />
+    ),
+    logout: (
+      <path
+        d="M14 5.2V4.8A1.8 1.8 0 0 0 12.2 3H6.8A1.8 1.8 0 0 0 5 4.8v14.4A1.8 1.8 0 0 0 6.8 21h5.4a1.8 1.8 0 0 0 1.8-1.8v-.4M10 12h9m-3-3 3 3-3 3"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.6"
+      />
     )
   };
 
@@ -224,6 +234,43 @@ function getStatusLabel(entry) {
   return entry.status === "ok" ? "Completato" : "Errore";
 }
 
+function buildCreateUserForm() {
+  return {
+    username: "",
+    displayName: "",
+    password: "",
+    role: "editor",
+    active: true
+  };
+}
+
+function buildEditUserForm(user) {
+  return {
+    displayName: user?.displayName || "",
+    password: "",
+    role: user?.role || "editor",
+    active: user?.active ?? true
+  };
+}
+
+function formatRole(role) {
+  return role === "admin" ? "Amministratore" : "Editor";
+}
+
+function getInitials(value) {
+  const parts = String(value || "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2);
+
+  if (!parts.length) {
+    return "IP";
+  }
+
+  return parts.map((part) => part[0]?.toUpperCase() || "").join("");
+}
+
 export default function HomePage() {
   const [theme, setTheme] = useState("dark");
   const [activeView, setActiveView] = useState("azione");
@@ -233,6 +280,7 @@ export default function HomePage() {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [generateLoading, setGenerateLoading] = useState(false);
   const [explorerLoading, setExplorerLoading] = useState(false);
+  const [usersLoading, setUsersLoading] = useState(false);
   const [systemInfo, setSystemInfo] = useState(null);
   const [rootFolders, setRootFolders] = useState([]);
   const [season, setSeason] = useState("");
@@ -246,6 +294,11 @@ export default function HomePage() {
   const [operationLogs, setOperationLogs] = useState([]);
   const [actionNotice, setActionNotice] = useState(null);
   const [explorerNotice, setExplorerNotice] = useState(null);
+  const [userNotice, setUserNotice] = useState(null);
+  const [users, setUsers] = useState([]);
+  const [selectedUserId, setSelectedUserId] = useState("");
+  const [createUserForm, setCreateUserForm] = useState(buildCreateUserForm());
+  const [editUserForm, setEditUserForm] = useState(buildEditUserForm());
 
   useEffect(() => {
     const storedTheme = window.localStorage.getItem("isaia-theme");
@@ -317,6 +370,20 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
+    if (!systemInfo?.auth?.currentUser) {
+      return;
+    }
+
+    if (systemInfo.auth.currentUser.role !== "admin") {
+      setUsers([]);
+      setSelectedUserId("");
+      return;
+    }
+
+    refreshUsers(true);
+  }, [systemInfo?.auth?.currentUser?.id, systemInfo?.auth?.currentUser?.role]);
+
+  useEffect(() => {
     let cancelled = false;
 
     async function loadLevel5Folders() {
@@ -337,9 +404,7 @@ export default function HomePage() {
         }
 
         setLevel5Folders(payload.folders ?? []);
-        setSelectedLevel5s((current) =>
-          current.filter((path) => path.startsWith(`${season}/`))
-        );
+        setSelectedLevel5s((current) => current.filter((path) => path.startsWith(`${season}/`)));
         setSelectedTargetPaths((current) =>
           current.filter((path) => path.startsWith(`${season}/`))
         );
@@ -428,6 +493,11 @@ export default function HomePage() {
     };
   }, [selectedLevel5s]);
 
+  useEffect(() => {
+    const nextUser = users.find((entry) => entry.id === selectedUserId) || null;
+    setEditUserForm(buildEditUserForm(nextUser));
+  }, [users, selectedUserId]);
+
   function switchTheme() {
     const nextTheme = theme === "dark" ? "light" : "dark";
     document.documentElement.dataset.theme = nextTheme;
@@ -444,6 +514,36 @@ export default function HomePage() {
       },
       ...currentLogs
     ].slice(0, 50));
+  }
+
+  async function refreshUsers(silent = false) {
+    if (systemInfo?.auth?.currentUser?.role !== "admin") {
+      return;
+    }
+
+    if (!silent) {
+      setUsersLoading(true);
+    }
+
+    try {
+      const payload = await fetchJson("/api/users");
+      const nextUsers = payload.users ?? [];
+
+      setUsers(nextUsers);
+      setSelectedUserId((current) =>
+        current && nextUsers.some((user) => user.id === current) ? current : nextUsers[0]?.id || ""
+      );
+      setUserNotice(null);
+    } catch (error) {
+      setUserNotice({
+        type: "error",
+        text: error instanceof Error ? error.message : "Errore durante il caricamento utenti."
+      });
+    } finally {
+      if (!silent) {
+        setUsersLoading(false);
+      }
+    }
   }
 
   async function openExplorer(subPath = "") {
@@ -505,12 +605,13 @@ export default function HomePage() {
       return;
     }
 
-    const [nextSeason, level5Path] = [segments[0], segments.slice(0, 2).join("/")];
+    const nextSeason = segments[0];
+    const level5Path = segments.slice(0, 2).join("/");
 
     if (season && season !== nextSeason) {
       setActionNotice({
         type: "error",
-        text: "La selezione da Explorer deve appartenere alla stessa stagione già scelta."
+        text: "La selezione da Explorer deve appartenere alla stessa stagione gia scelta."
       });
       return;
     }
@@ -530,19 +631,6 @@ export default function HomePage() {
     });
     setActiveView("azione");
   }
-
-  const allLevel5Paths = useMemo(() => useAllValues(level5Folders), [level5Folders]);
-  const allTargetPaths = useMemo(
-    () => level6Groups.flatMap((group) => group.folders.map((folder) => folder.subPath)),
-    [level6Groups]
-  );
-
-  const latestLog = operationLogs[0] ?? null;
-  const latestSuccessLog = operationLogs.find((entry) => entry.status === "ok") ?? null;
-  const previewReady =
-    preview &&
-    preview.selectedSubPaths?.length === selectedTargetPaths.length &&
-    selectedTargetPaths.every((path) => preview.selectedSubPaths.includes(path));
 
   async function loadPreview() {
     if (!selectedTargetPaths.length) {
@@ -671,6 +759,98 @@ export default function HomePage() {
     window.URL.revokeObjectURL(objectUrl);
   }
 
+  async function handleLogout() {
+    await fetch("/api/auth/logout", {
+      method: "POST"
+    }).catch(() => null);
+
+    window.location.assign("/login");
+  }
+
+  async function handleCreateUser() {
+    setUsersLoading(true);
+    setUserNotice(null);
+
+    try {
+      const payload = await fetchJson("/api/users", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(createUserForm)
+      });
+
+      await refreshUsers(true);
+      setCreateUserForm(buildCreateUserForm());
+      setSelectedUserId(payload.user?.id || "");
+      setUserNotice({
+        type: "success",
+        text: `Utente creato: ${payload.user?.username || ""}`
+      });
+    } catch (error) {
+      setUserNotice({
+        type: "error",
+        text: error instanceof Error ? error.message : "Errore durante la creazione utente."
+      });
+    } finally {
+      setUsersLoading(false);
+    }
+  }
+
+  async function handleUpdateUser() {
+    if (!selectedUserId) {
+      setUserNotice({
+        type: "error",
+        text: "Seleziona prima un utente da modificare."
+      });
+      return;
+    }
+
+    setUsersLoading(true);
+    setUserNotice(null);
+
+    try {
+      const payload = await fetchJson(`/api/users/${selectedUserId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(editUserForm)
+      });
+
+      await refreshUsers(true);
+      setSelectedUserId(payload.user?.id || selectedUserId);
+      setUserNotice({
+        type: "success",
+        text: `Utente aggiornato: ${payload.user?.username || ""}`
+      });
+    } catch (error) {
+      setUserNotice({
+        type: "error",
+        text: error instanceof Error ? error.message : "Errore durante l'aggiornamento utente."
+      });
+    } finally {
+      setUsersLoading(false);
+    }
+  }
+
+  const allLevel5Paths = useMemo(() => useAllValues(level5Folders), [level5Folders]);
+  const allTargetPaths = useMemo(
+    () => level6Groups.flatMap((group) => group.folders.map((folder) => folder.subPath)),
+    [level6Groups]
+  );
+  const currentUser = systemInfo?.auth?.currentUser ?? null;
+  const selectedUser = useMemo(
+    () => users.find((entry) => entry.id === selectedUserId) || null,
+    [users, selectedUserId]
+  );
+  const latestLog = operationLogs[0] ?? null;
+  const latestSuccessLog = operationLogs.find((entry) => entry.status === "ok") ?? null;
+  const previewReady =
+    preview &&
+    preview.selectedSubPaths?.length === selectedTargetPaths.length &&
+    selectedTargetPaths.every((path) => preview.selectedSubPaths.includes(path));
+
   const metrics = [
     {
       label: "Stagione",
@@ -727,10 +907,10 @@ export default function HomePage() {
             <strong>{systemInfo?.settings.baseFolder ?? "Caricamento..."}</strong>
           </div>
           <div className="meta-user">
-            <div className="meta-avatar">IP</div>
+            <div className="meta-avatar">{getInitials(currentUser?.displayName)}</div>
             <div>
-              <strong>Accesso interno</strong>
-              <span>{systemInfo?.basicAuth.enabled ? "Basic Auth attiva" : "Accesso libero"}</span>
+              <strong>{currentUser?.displayName || "Sessione in avvio"}</strong>
+              <span>{currentUser ? formatRole(currentUser.role) : "Caricamento utente"}</span>
             </div>
           </div>
         </div>
@@ -745,9 +925,19 @@ export default function HomePage() {
 
           <div className="topbar-actions">
             <span className="live-badge">Dati live</span>
+            {currentUser ? (
+              <div className="user-pill">
+                <span className="user-pill-name">{currentUser.displayName}</span>
+                <span className="user-pill-role">{formatRole(currentUser.role)}</span>
+              </div>
+            ) : null}
             <button className="icon-button" type="button" onClick={switchTheme}>
               <Glyph name={theme === "dark" ? "sun" : "moon"} />
               <span>{theme === "dark" ? "Tema chiaro" : "Tema scuro"}</span>
+            </button>
+            <button className="panel-button subtle" type="button" onClick={handleLogout}>
+              <Glyph name="logout" />
+              <span>Esci</span>
             </button>
             <div className="topbar-wordmark">ISAIA</div>
           </div>
@@ -760,9 +950,8 @@ export default function HomePage() {
               <span className="tag">Anteprima + CSV</span>
             </div>
             <p className="hero-copy">
-              Scegli una stagione, seleziona una o più sotto-cartelle, poi una o più
-              sotto-sotto-cartelle oppure usa “seleziona tutte”. I percorsi finali
-              vengono usati per anteprima e generazione CSV.
+              Scegli una stagione e costruisci i percorsi finali da usare per l&apos;anteprima e per
+              la generazione del CSV.
             </p>
           </div>
 
@@ -787,11 +976,8 @@ export default function HomePage() {
             <section className="panel">
               <div className="panel-head">
                 <div>
-                  <h3>Configurazione selezione</h3>
-                  <p>
-                    Il flusso è guidato: stagione, multiselezione sotto-cartelle, poi
-                    multiselezione sotto-sotto-cartelle.
-                  </p>
+                  <h3>Selezione cartelle</h3>
+                  <p>Scegli la stagione e poi le cartelle finali da usare per anteprima e CSV.</p>
                 </div>
               </div>
 
@@ -837,7 +1023,7 @@ export default function HomePage() {
                         className="panel-button subtle"
                         type="button"
                         disabled={!selectedLevel5s.length}
-                     onClick={() => {
+                        onClick={() => {
                           setSelectedLevel5s([]);
                           setSelectedTargetPaths([]);
                           resetOutputs();
@@ -873,8 +1059,8 @@ export default function HomePage() {
                 <article className="selector-panel">
                   <div className="selector-head">
                     <div>
-                      <h4>Sotto-sotto-cartelle</h4>
-                      <p>Livello 6 da usare come percorsi finali per i dati Pinterest.</p>
+                      <h4>Cartelle finali</h4>
+                      <p>Livello 6 usato per anteprima e CSV.</p>
                     </div>
                     <div className="inline-actions">
                       <button
@@ -922,8 +1108,8 @@ export default function HomePage() {
                     {!level6Groups.length ? (
                       <div className="empty-block">
                         {collectionsLoading
-                          ? "Caricamento sotto-sotto-cartelle..."
-                          : "Seleziona una o più sotto-cartelle per vedere le cartelle finali."}
+                          ? "Caricamento cartelle finali..."
+                          : "Seleziona una o piu sotto-cartelle per vedere le cartelle finali."}
                       </div>
                     ) : null}
                   </div>
@@ -940,16 +1126,16 @@ export default function HomePage() {
                   <strong>{selectedTargetPaths.length}</strong>
                 </div>
                 <div className="summary-item">
-                  <span>Modalità</span>
+                  <span>Modalita</span>
                   <strong>
                     {selectedTargetPaths.length === allTargetPaths.length && allTargetPaths.length
-                      ? "Tutte le sotto-sotto-cartelle"
-                      : "Multiselezione manuale"}
+                      ? "Tutte le cartelle finali"
+                      : "Selezione manuale"}
                   </strong>
                 </div>
                 <div className="summary-item">
                   <span>Regola immagini</span>
-                  <strong>Per ogni LOOK resta il file con numero finale più basso.</strong>
+                  <strong>Per ogni LOOK resta il file con numero finale piu basso.</strong>
                 </div>
               </div>
 
@@ -1006,10 +1192,7 @@ export default function HomePage() {
               <div className="panel-head">
                 <div>
                   <h3>Anteprima contenuti</h3>
-                  <p>
-                    Esempio reale in stile Pinterest. Qui vedi anche da quale cartella vengono pescate
-                    le immagini e la regola del numero più basso.
-                  </p>
+                  <p>Scegli una o piu cartelle finali e carica l&apos;anteprima prima della generazione.</p>
                 </div>
                 <div className="preview-meta">
                   <span>{preview ? `${preview.generatedCount} pin validi` : "Nessuna anteprima"}</span>
@@ -1040,6 +1223,7 @@ export default function HomePage() {
                         <div className="preview-image-wrap">
                           <img className="preview-image" src={item.imageUrl} alt={item.title} />
                         </div>
+
                         <div className="preview-compose">
                           <div className="compose-field">
                             <span className="compose-label">Titolo</span>
@@ -1057,6 +1241,7 @@ export default function HomePage() {
                             <span className="compose-label">Bacheca</span>
                             <div className="compose-box">{item.board}</div>
                           </div>
+
                           <div className="preview-info-grid">
                             <div className="preview-info-card">
                               <span>Cartella immagini</span>
@@ -1082,7 +1267,7 @@ export default function HomePage() {
                 </>
               ) : (
                 <div className="empty-preview">
-                  Scegli una o più cartelle finali e carica l&apos;anteprima prima della generazione.
+                  Scegli una o piu cartelle finali e carica l&apos;anteprima prima della generazione.
                 </div>
               )}
             </section>
@@ -1094,7 +1279,7 @@ export default function HomePage() {
             <div className="panel-head">
               <div>
                 <h3>Explorer SharePoint</h3>
-                <p>Naviga le cartelle reali. Quando arrivi a una cartella finale puoi aggiungerla alla selezione corrente.</p>
+                <p>Naviga le cartelle reali e aggiungi alla selezione solo quelle finali utili per il CSV.</p>
               </div>
               <div className="inline-actions">
                 <button className="panel-button subtle" type="button" onClick={() => openExplorer("")}>
@@ -1109,7 +1294,7 @@ export default function HomePage() {
                   >
                     <Glyph name="plus" />
                     <span>Aggiungi questa cartella</span>
-            </button>
+                  </button>
                 ) : null}
               </div>
             </div>
@@ -1222,11 +1407,7 @@ export default function HomePage() {
                 <h3>Log operazioni</h3>
                 <p>Storico locale con cartelle SharePoint usate, conteggi e stato finale.</p>
               </div>
-              <button
-                className="panel-button subtle"
-                type="button"
-                onClick={() => setOperationLogs([])}
-              >
+              <button className="panel-button subtle" type="button" onClick={() => setOperationLogs([])}>
                 <Glyph name="refresh" />
                 <span>Svuota log</span>
               </button>
@@ -1251,7 +1432,7 @@ export default function HomePage() {
                     <tr key={entry.id}>
                       <td>{formatDateTime(entry.timestamp)}</td>
                       <td>{entry.action}</td>
-                      <td>{(entry.paths ?? []).join(" • ") || "-"}</td>
+                      <td>{(entry.paths ?? []).join(" | ") || "-"}</td>
                       <td>
                         <span className={`status-pill ${entry.status}`}>{getStatusLabel(entry)}</span>
                       </td>
@@ -1269,61 +1450,276 @@ export default function HomePage() {
           </section>
         ) : null}
 
-        {activeView === "accessi" ? (
+        {activeView === "utenti" ? (
           <section className="two-column-grid">
             <article className="panel">
               <div className="panel-head">
                 <div>
-                  <h3>Utenti Basic</h3>
-                  <p>Stato corrente della protezione HTTP Basic configurata su Vercel.</p>
+                  <h3>Utenti</h3>
+                  <p>Gestisci gli accessi alla dashboard e controlla lo stato delle route pubbliche.</p>
                 </div>
+                {currentUser?.role === "admin" ? (
+                  <button className="panel-button subtle" type="button" onClick={() => refreshUsers()} disabled={usersLoading}>
+                    <Glyph name="refresh" />
+                    <span>{usersLoading ? "Aggiornamento..." : "Aggiorna"}</span>
+                  </button>
+                ) : null}
               </div>
 
               <div className="info-grid">
                 <div className="info-card">
-                  <span>Stato</span>
-                  <strong>{systemInfo?.basicAuth.enabled ? "Attiva" : "Disattiva"}</strong>
+                  <span>Sessione</span>
+                  <strong>{currentUser ? "Attiva" : "Non disponibile"}</strong>
                 </div>
                 <div className="info-card">
-                  <span>Utente</span>
-                  <strong>{systemInfo?.basicAuth.username || "Non configurato"}</strong>
-              </div>
+                  <span>Ruolo corrente</span>
+                  <strong>{currentUser ? formatRole(currentUser.role) : "-"}</strong>
+                </div>
+                <div className="info-card">
+                  <span>Storage utenti</span>
+                  <strong>{systemInfo?.auth?.usersPersistent ? "Vercel Blob cifrato" : "Solo bootstrap"}</strong>
+                </div>
                 <div className="info-card">
                   <span>Media pubblici</span>
                   <strong>/media aperta</strong>
                 </div>
-                <div className="info-card">
-                  <span>Health check</span>
-                  <strong>/api/health aperta</strong>
-                </div>
               </div>
+
+              {currentUser?.role === "admin" ? (
+                <div className="user-list">
+                  {users.map((user) => (
+                    <button
+                      key={user.id}
+                      className={`user-row ${selectedUserId === user.id ? "active" : ""}`}
+                      type="button"
+                      onClick={() => setSelectedUserId(user.id)}
+                    >
+                      <div className="user-row-main">
+                        <div className="user-avatar">{getInitials(user.displayName)}</div>
+                        <div className="user-copy">
+                          <strong>{user.displayName}</strong>
+                          <span>{user.username}</span>
+                        </div>
+                      </div>
+                      <div className="user-row-meta">
+                        <span className={`status-pill ${user.active ? "ok" : "error"}`}>
+                          {user.active ? "Attivo" : "Disattivo"}
+                        </span>
+                        <small>{formatRole(user.role)}</small>
+                      </div>
+                    </button>
+                  ))}
+
+                  {!users.length ? <div className="empty-block">Nessun utente configurato.</div> : null}
+                </div>
+              ) : (
+                <div className="empty-block">Solo un amministratore puo creare o modificare utenti.</div>
+              )}
             </article>
 
             <article className="panel">
               <div className="panel-head">
                 <div>
-                  <h3>Percorsi protetti</h3>
-                  <p>Le route interne restano protette; media e health restano pubbliche.</p>
+                  <h3>Gestione accessi</h3>
+                  <p>Crea un nuovo utente oppure aggiorna quello selezionato.</p>
                 </div>
               </div>
 
-              <div className="route-stack">
-                {(systemInfo?.basicAuth.protectedRoutes ?? []).map((route) => (
-                  <div className="route-row" key={route}>
-                    <Glyph name="shield" />
-                    <span>{route}</span>
-                  </div>
-                ))}
-              </div>
+              {userNotice ? <div className={`notice ${userNotice.type}`}>{userNotice.text}</div> : null}
 
-              <div className="route-stack public">
-                {(systemInfo?.basicAuth.publicRoutes ?? []).map((route) => (
-                  <div className="route-row" key={route}>
-                    <Glyph name="image" />
-                    <span>{route}</span>
+              {currentUser?.role === "admin" ? (
+                <div className="user-editor-stack">
+                  <div className="editor-block">
+                    <div className="editor-block-head">
+                      <h4>Nuovo utente</h4>
+                    </div>
+
+                    <div className="form-grid">
+                      <label className="field">
+                        <span>Username</span>
+                        <input
+                          className="select-field"
+                          type="text"
+                          value={createUserForm.username}
+                          onChange={(event) =>
+                            setCreateUserForm((current) => ({
+                              ...current,
+                              username: event.target.value
+                            }))
+                          }
+                          placeholder="m.rossi"
+                        />
+                      </label>
+                      <label className="field">
+                        <span>Nome visibile</span>
+                        <input
+                          className="select-field"
+                          type="text"
+                          value={createUserForm.displayName}
+                          onChange={(event) =>
+                            setCreateUserForm((current) => ({
+                              ...current,
+                              displayName: event.target.value
+                            }))
+                          }
+                          placeholder="Mario Rossi"
+                        />
+                      </label>
+                      <label className="field">
+                        <span>Password</span>
+                        <input
+                          className="select-field"
+                          type="password"
+                          value={createUserForm.password}
+                          onChange={(event) =>
+                            setCreateUserForm((current) => ({
+                              ...current,
+                              password: event.target.value
+                            }))
+                          }
+                          placeholder="Password iniziale"
+                        />
+                      </label>
+                      <label className="field">
+                        <span>Ruolo</span>
+                        <select
+                          className="select-field"
+                          value={createUserForm.role}
+                          onChange={(event) =>
+                            setCreateUserForm((current) => ({
+                              ...current,
+                              role: event.target.value
+                            }))
+                          }
+                        >
+                          <option value="editor">Editor</option>
+                          <option value="admin">Amministratore</option>
+                        </select>
+                      </label>
+                    </div>
+
+                    <label className="toggle-line">
+                      <input
+                        type="checkbox"
+                        checked={createUserForm.active}
+                        onChange={(event) =>
+                          setCreateUserForm((current) => ({
+                            ...current,
+                            active: event.target.checked
+                          }))
+                        }
+                      />
+                      <span>Utente attivo</span>
+                    </label>
+
+                    <div className="action-row">
+                      <button className="primary-button" type="button" onClick={handleCreateUser} disabled={usersLoading}>
+                        <Glyph name="plus" />
+                        <span>{usersLoading ? "Salvataggio..." : "Crea utente"}</span>
+                      </button>
+                    </div>
                   </div>
-                ))}
-              </div>
+
+                  <div className="editor-block">
+                    <div className="editor-block-head">
+                      <h4>Modifica utente</h4>
+                      <span className="tag soft">{selectedUser ? selectedUser.username : "Nessuno selezionato"}</span>
+                    </div>
+
+                    {selectedUser ? (
+                      <>
+                        <div className="form-grid">
+                          <label className="field">
+                            <span>Username</span>
+                            <input className="select-field" type="text" value={selectedUser.username} readOnly />
+                          </label>
+                          <label className="field">
+                            <span>Nome visibile</span>
+                            <input
+                              className="select-field"
+                              type="text"
+                              value={editUserForm.displayName}
+                              onChange={(event) =>
+                                setEditUserForm((current) => ({
+                                  ...current,
+                                  displayName: event.target.value
+                                }))
+                              }
+                            />
+                          </label>
+                          <label className="field">
+                            <span>Nuova password</span>
+                            <input
+                              className="select-field"
+                              type="password"
+                              value={editUserForm.password}
+                              onChange={(event) =>
+                                setEditUserForm((current) => ({
+                                  ...current,
+                                  password: event.target.value
+                                }))
+                              }
+                              placeholder="Lascia vuoto per non cambiarla"
+                            />
+                          </label>
+                          <label className="field">
+                            <span>Ruolo</span>
+                            <select
+                              className="select-field"
+                              value={editUserForm.role}
+                              onChange={(event) =>
+                                setEditUserForm((current) => ({
+                                  ...current,
+                                  role: event.target.value
+                                }))
+                              }
+                            >
+                              <option value="editor">Editor</option>
+                              <option value="admin">Amministratore</option>
+                            </select>
+                          </label>
+                        </div>
+
+                        <label className="toggle-line">
+                          <input
+                            type="checkbox"
+                            checked={editUserForm.active}
+                            onChange={(event) =>
+                              setEditUserForm((current) => ({
+                                ...current,
+                                active: event.target.checked
+                              }))
+                            }
+                          />
+                          <span>Utente attivo</span>
+                        </label>
+
+                        <div className="user-detail-grid">
+                          <div className="summary-item">
+                            <span>Creato</span>
+                            <strong>{formatDateTime(selectedUser.createdAt)}</strong>
+                          </div>
+                          <div className="summary-item">
+                            <span>Ultimo accesso</span>
+                            <strong>{formatDateTime(selectedUser.lastLoginAt)}</strong>
+                          </div>
+                        </div>
+
+                        <div className="action-row">
+                          <button className="primary-button" type="button" onClick={handleUpdateUser} disabled={usersLoading}>
+                            <Glyph name="check" />
+                            <span>{usersLoading ? "Salvataggio..." : "Salva modifiche"}</span>
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="empty-block">Seleziona un utente dalla lista per modificarlo.</div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="empty-block">Solo un amministratore puo modificare gli utenti.</div>
+              )}
             </article>
           </section>
         ) : null}
@@ -1333,7 +1729,7 @@ export default function HomePage() {
             <div className="panel-head">
               <div>
                 <h3>Impostazioni operative</h3>
-                <p>Valori attivi usati dall&apos;app per SharePoint e generazione CSV.</p>
+                <p>Valori attivi usati dall&apos;app per SharePoint, accesso e generazione CSV.</p>
               </div>
             </div>
 
@@ -1370,6 +1766,14 @@ export default function HomePage() {
                 <span>Media URL</span>
                 <strong>{systemInfo?.settings.mediaMode ?? "Caricamento..."}</strong>
               </div>
+              <div className="setting-card">
+                <span>Accesso dashboard</span>
+                <strong>Login con sessione firmata</strong>
+              </div>
+              <div className="setting-card">
+                <span>Storage utenti</span>
+                <strong>{systemInfo?.auth?.usersPersistent ? "Vercel Blob cifrato" : "Solo bootstrap"}</strong>
+              </div>
             </div>
           </section>
         ) : null}
@@ -1390,6 +1794,11 @@ export default function HomePage() {
 async function fetchJson(url, options) {
   const response = await fetch(url, options);
   const payload = await response.json().catch(() => ({}));
+
+  if (response.status === 401 && typeof window !== "undefined") {
+    window.location.assign("/login");
+    throw new Error(payload.error || "Sessione non valida.");
+  }
 
   if (!response.ok) {
     throw new Error(payload.error || "Richiesta non riuscita.");

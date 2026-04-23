@@ -45,14 +45,17 @@ npm run dev
 - `PINTEREST_LINK_URL=https://www.isaia.it/`
 - `PINTEREST_THUMBNAIL_MODE=blank`
 
-### Protezione app
+### Login e utenti
 
-- `BASIC_AUTH_USERNAME`
-- `BASIC_AUTH_PASSWORD`
+- `AUTH_SECRET` consigliato per firmare la sessione
+- `AUTH_BOOTSTRAP_USERNAME` e `AUTH_BOOTSTRAP_PASSWORD` per creare il primo amministratore
+- `BLOB_READ_WRITE_TOKEN` per salvare e aggiornare gli utenti in modo persistente su Vercel Blob
+
+Se non imposti `AUTH_BOOTSTRAP_*`, l'app puo usare in fallback `BASIC_AUTH_USERNAME` e `BASIC_AUTH_PASSWORD` solo per bootstrap iniziale del primo utente.
 
 ## Permessi SharePoint
 
-Per questa implementazione basta accesso applicativo in lettura al sito/document library SharePoint, perche i `Media URL` vengono serviti dall'app usando una route pubblica firmata che fa da proxy live verso SharePoint e non richiede Blob.
+Per questa implementazione basta accesso applicativo in lettura al sito/document library SharePoint, perche i `Media URL` vengono serviti dall'app usando una route pubblica firmata che fa da proxy live verso SharePoint e non richiede Blob per le immagini.
 
 ## Deploy su Vercel
 
