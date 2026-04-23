@@ -110,12 +110,13 @@ svg {
   min-height: 100vh;
   display: grid;
   grid-template-columns: 248px minmax(0, 1fr);
+  align-items: start;
 }
 
 .workspace-sidebar {
   position: sticky;
   top: 0;
-  min-height: 100vh;
+  height: 100vh;
   padding: 18px 14px;
   display: flex;
   flex-direction: column;
