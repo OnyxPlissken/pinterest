@@ -1,4 +1,5 @@
 import { getRuntimeConfig } from "../../../lib/admin-store";
+import { buildAssetFingerprint } from "../../../lib/asset-fingerprint";
 import { buildPublicMediaUrl } from "../../../lib/media-url";
 import { normalizeOperationalError } from "../../../lib/operational-errors";
 import { getSharePointAccessToken } from "../../../lib/sharepoint-auth";
@@ -22,7 +23,11 @@ export async function GET(request) {
       ...explorer,
       files: (explorer.files ?? []).map((file) => ({
         ...file,
-        openUrl: buildPublicMediaUrl(file.serverRelativeUrl, request.nextUrl.origin)
+        openUrl: buildPublicMediaUrl(
+          file.serverRelativeUrl,
+          request.nextUrl.origin,
+          buildAssetFingerprint(file)
+        )
       })),
       baseFolder: runtime.config.sharePoint.baseFolder
     });

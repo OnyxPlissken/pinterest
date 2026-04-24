@@ -19,12 +19,13 @@ function badResponse(message, status) {
 export async function GET(request) {
   const serverRelativeUrl = request.nextUrl.searchParams.get("path")?.trim();
   const signature = request.nextUrl.searchParams.get("sig")?.trim();
+  const version = request.nextUrl.searchParams.get("v")?.trim();
 
   if (!serverRelativeUrl || !signature) {
     return badResponse("Missing media parameters.", 400);
   }
 
-  if (!verifyMediaSignature(serverRelativeUrl, signature)) {
+  if (!verifyMediaSignature(serverRelativeUrl, signature, version)) {
     return badResponse("Invalid media signature.", 403);
   }
 
