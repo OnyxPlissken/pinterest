@@ -57,12 +57,17 @@ export async function GET(request) {
       sharePointUrl: `https://${process.env.SHAREPOINT_HOSTNAME || "isaia.sharepoint.com"}${process.env.SHAREPOINT_SITE_PATH || "/sites/branding"}`,
       library: adminState.settings?.sharePoint?.driveName || "",
       baseFolder: adminState.settings?.sharePoint?.baseFolder || "",
+      pinterestAppId: adminState.settings?.pinterest?.appId || "",
+      pinterestAppSecretConfigured: Boolean(adminState.settings?.pinterest?.appSecret),
       titlePrefix: adminState.settings?.pinterest?.titlePrefix || "",
       descriptionPrefix: adminState.settings?.pinterest?.descriptionPrefix || "",
       linkUrl: adminState.settings?.pinterest?.linkUrl || "",
       thumbnailMode: adminState.settings?.pinterest?.thumbnailMode || "blank",
       defaultRuleId: adminState.settings?.defaultRuleId || "",
-      mediaMode: "Proxy live da SharePoint, nessun Vercel Blob"
+      mediaMode: "Proxy live da SharePoint, nessun Vercel Blob",
+      pinterestApiReady: Boolean(
+        adminState.settings?.pinterest?.appId && adminState.settings?.pinterest?.appSecret
+      )
     },
     rules: adminState.rules,
     adminStore: {

@@ -514,6 +514,12 @@ svg {
   letter-spacing: 0.08em;
 }
 
+.field-note {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
 .select-field {
   min-height: 42px;
   padding: 0 12px;

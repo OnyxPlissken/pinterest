@@ -310,12 +310,17 @@ function buildSettingsForm(settings) {
   return {
     appName: settings?.appName || "Pinterest Assets Management",
     defaultRuleId: settings?.defaultRuleId || "",
-    driveName: settings?.sharePoint?.driveName || "",
-    baseFolder: settings?.sharePoint?.baseFolder || "",
-    titlePrefix: settings?.pinterest?.titlePrefix || "",
-    descriptionPrefix: settings?.pinterest?.descriptionPrefix || "",
-    linkUrl: settings?.pinterest?.linkUrl || "",
-    thumbnailMode: settings?.pinterest?.thumbnailMode || "blank"
+    driveName: settings?.sharePoint?.driveName || settings?.library || "",
+    baseFolder: settings?.sharePoint?.baseFolder || settings?.baseFolder || "",
+    pinterestAppId: settings?.pinterest?.appId || settings?.pinterestAppId || "",
+    pinterestAppSecret: "",
+    pinterestAppSecretConfigured:
+      settings?.pinterest?.appSecretConfigured || settings?.pinterestAppSecretConfigured || false,
+    titlePrefix: settings?.pinterest?.titlePrefix || settings?.titlePrefix || "",
+    descriptionPrefix:
+      settings?.pinterest?.descriptionPrefix || settings?.descriptionPrefix || "",
+    linkUrl: settings?.pinterest?.linkUrl || settings?.linkUrl || "",
+    thumbnailMode: settings?.pinterest?.thumbnailMode || settings?.thumbnailMode || "blank"
   };
 }
 
@@ -1090,6 +1095,8 @@ export default function HomePage() {
             baseFolder: settingsForm.baseFolder
           },
           pinterest: {
+            appId: settingsForm.pinterestAppId,
+            appSecret: settingsForm.pinterestAppSecret,
             titlePrefix: settingsForm.titlePrefix,
             descriptionPrefix: settingsForm.descriptionPrefix,
             linkUrl: settingsForm.linkUrl,
@@ -2651,7 +2658,7 @@ export default function HomePage() {
               <div className="panel-head">
                 <div>
                   <h3>Impostazioni piattaforma</h3>
-                  <p>Definisci i parametri di lavoro dell&apos;app. Credenziali e segreti restano protetti lato ambiente.</p>
+                  <p>Definisci i parametri operativi dell&apos;app e i dati Pinterest usati dall&apos;integrazione API.</p>
                 </div>
               </div>
 
@@ -2723,6 +2730,45 @@ export default function HomePage() {
                           }))
                         }
                       />
+                    </label>
+                    <label className="field">
+                      <span>Pinterest App ID</span>
+                      <input
+                        className="select-field"
+                        type="text"
+                        value={settingsForm.pinterestAppId}
+                        onChange={(event) =>
+                          setSettingsForm((current) => ({
+                            ...current,
+                            pinterestAppId: event.target.value
+                          }))
+                        }
+                      />
+                      <small className="field-note">
+                        Inserisci l&apos;App ID ufficiale non appena l&apos;app Pinterest viene approvata.
+                      </small>
+                    </label>
+                    <label className="field">
+                      <span>Pinterest App Secret</span>
+                      <input
+                        className="select-field"
+                        type="password"
+                        value={settingsForm.pinterestAppSecret}
+                        placeholder={
+                          settingsForm.pinterestAppSecretConfigured
+                            ? "Gia configurato. Inserisci solo per sostituirlo."
+                            : "Inserisci il secret Pinterest"
+                        }
+                        onChange={(event) =>
+                          setSettingsForm((current) => ({
+                            ...current,
+                            pinterestAppSecret: event.target.value
+                          }))
+                        }
+                      />
+                      <small className="field-note">
+                        Il secret viene salvato nello storage amministrativo cifrato e non viene piu mostrato in chiaro.
+                      </small>
                     </label>
                     <label className="field">
                       <span>Titolo fisso default</span>
@@ -2827,12 +2873,16 @@ export default function HomePage() {
                   <strong>{systemInfo?.settings.mediaMode ?? "Caricamento..."}</strong>
                 </div>
                 <div className="setting-card">
-                  <span>Accesso dashboard</span>
-                  <strong>Login con sessione firmata</strong>
+                  <span>Pinterest API</span>
+                  <strong>
+                    {systemInfo?.settings?.pinterestApiReady
+                      ? "App ID e secret configurati"
+                      : "In attesa credenziali applicative"}
+                  </strong>
                 </div>
                 <div className="setting-card">
-                  <span>Segreti</span>
-                  <strong>Gestiti solo da environment Vercel</strong>
+                  <span>Accesso dashboard</span>
+                  <strong>Login con sessione firmata</strong>
                 </div>
               </div>
             </article>
