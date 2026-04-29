@@ -408,6 +408,7 @@ export default function HomePage() {
   const [selectedPinterestBoardId, setSelectedPinterestBoardId] = useState("");
   const [selectedPinterestSectionId, setSelectedPinterestSectionId] = useState("");
   const [selectedPinterestPinIds, setSelectedPinterestPinIds] = useState([]);
+  const [editingPinterestPinId, setEditingPinterestPinId] = useState("");
   const [pinterestEditForm, setPinterestEditForm] = useState({
     title: "",
     description: "",
@@ -657,7 +658,7 @@ export default function HomePage() {
   }, [activeView, pinterestTree.boards.length]);
 
   useEffect(() => {
-    if (selectedPinterestPinIds.length !== 1) {
+    if (!editingPinterestPinId) {
       setPinterestEditForm({
         title: "",
         description: "",
@@ -666,13 +667,13 @@ export default function HomePage() {
       return;
     }
 
-    const selectedPin = pinterestPins.find((pin) => pin.id === selectedPinterestPinIds[0]);
+    const selectedPin = pinterestPins.find((pin) => pin.id === editingPinterestPinId);
     setPinterestEditForm({
       title: selectedPin?.title || "",
       description: selectedPin?.description || "",
       link: selectedPin?.link || ""
     });
-  }, [pinterestPins, selectedPinterestPinIds]);
+  }, [editingPinterestPinId, pinterestPins]);
 
   useEffect(() => {
     const activeRules = rules.filter((rule) => rule.active);
@@ -779,6 +780,7 @@ export default function HomePage() {
       setPinterestPins([]);
       setPinterestContext(null);
       setSelectedPinterestPinIds([]);
+      setEditingPinterestPinId("");
       return;
     }
 
@@ -798,6 +800,7 @@ export default function HomePage() {
         sections: payload.sections ?? []
       });
       setSelectedPinterestPinIds([]);
+      setEditingPinterestPinId("");
     } catch (error) {
       setPinterestNotice({
         type: "error",
@@ -827,6 +830,14 @@ export default function HomePage() {
 
   function selectAllPinterestPins() {
     setSelectedPinterestPinIds(pinterestPins.map((pin) => pin.id));
+  }
+
+  function openPinterestPinEditor(pin) {
+    setEditingPinterestPinId(pin.id);
+  }
+
+  function closePinterestPinEditor() {
+    setEditingPinterestPinId("");
   }
 
   async function deleteSelectedPinterestPins() {
@@ -874,11 +885,11 @@ export default function HomePage() {
   }
 
   async function updateSelectedPinterestPin() {
-    const selectedPin = pinterestPins.find((pin) => pin.id === selectedPinterestPinIds[0]);
-    if (selectedPinterestPinIds.length !== 1 || !selectedPin) {
+    const selectedPin = pinterestPins.find((pin) => pin.id === editingPinterestPinId);
+    if (!selectedPin) {
       setPinterestNotice({
         type: "error",
-        text: "Seleziona un solo Pin da modificare."
+        text: "Seleziona un Pin da modificare."
       });
       return;
     }
@@ -907,6 +918,7 @@ export default function HomePage() {
         type: "success",
         text: "Pin aggiornato."
       });
+      setEditingPinterestPinId("");
       await refreshPinterestPins(selectedPinterestBoardId, selectedPinterestSectionId);
     } catch (error) {
       setPinterestNotice({
@@ -1465,6 +1477,10 @@ export default function HomePage() {
   const allPinterestSections = useMemo(
     () => collectSections(pinterestTree.sectionsByBoard),
     [pinterestTree.sectionsByBoard]
+  );
+  const editingPinterestPin = useMemo(
+    () => pinterestPins.find((pin) => pin.id === editingPinterestPinId) || null,
+    [editingPinterestPinId, pinterestPins]
   );
   const explorerQueryNormalized = explorerQuery.trim().toLowerCase();
   const filteredExplorerFolders = useMemo(() => {
@@ -2059,61 +2075,6 @@ export default function HomePage() {
                 </button>
               </div>
 
-              {selectedPinterestPinIds.length === 1 ? (
-                <div className="pin-edit-panel">
-                  <label className="field">
-                    <span>Titolo</span>
-                    <input
-                      className="select-field"
-                      type="text"
-                      value={pinterestEditForm.title}
-                      onChange={(event) =>
-                        setPinterestEditForm((current) => ({
-                          ...current,
-                          title: event.target.value
-                        }))
-                      }
-                    />
-                  </label>
-                  <label className="field">
-                    <span>Descrizione</span>
-                    <textarea
-                      className="select-field textarea-field"
-                      value={pinterestEditForm.description}
-                      onChange={(event) =>
-                        setPinterestEditForm((current) => ({
-                          ...current,
-                          description: event.target.value
-                        }))
-                      }
-                    />
-                  </label>
-                  <label className="field">
-                    <span>Link</span>
-                    <input
-                      className="select-field"
-                      type="text"
-                      value={pinterestEditForm.link}
-                      onChange={(event) =>
-                        setPinterestEditForm((current) => ({
-                          ...current,
-                          link: event.target.value
-                        }))
-                      }
-                    />
-                  </label>
-                  <button
-                    className="primary-button"
-                    type="button"
-                    onClick={updateSelectedPinterestPin}
-                    disabled={pinterestActionLoading}
-                  >
-                    <Glyph name="check" />
-                    <span>{pinterestActionLoading ? "Salvataggio..." : "Salva Pin"}</span>
-                  </button>
-                </div>
-              ) : null}
-
               <div className="pinterest-pin-grid">
                 {pinterestPins.map((pin) => (
                   <article className="pinterest-pin-card" key={pin.id}>
@@ -2125,12 +2086,14 @@ export default function HomePage() {
                       />
                       <span>{pin.title || "Pin senza titolo"}</span>
                     </label>
-                    {pin.imageUrl ? <img src={pin.imageUrl} alt={pin.title || pin.id} /> : <div className="pin-empty-image">No image</div>}
-                    <div className="pin-meta">
+                    <button className="pin-card-button" type="button" onClick={() => openPinterestPinEditor(pin)}>
+                      {pin.imageUrl ? <img src={pin.imageUrl} alt={pin.title || pin.id} /> : <div className="pin-empty-image">No image</div>}
+                    </button>
+                    <button className="pin-meta" type="button" onClick={() => openPinterestPinEditor(pin)}>
                       <strong>{pin.boardName}</strong>
                       <span>{pin.sectionName || "Nessuna sezione"} · {getPrivacyLabel(pin.boardPrivacy)}</span>
                       {pin.link ? <small>{pin.link}</small> : <small>Link vuoto</small>}
-                    </div>
+                    </button>
                   </article>
                 ))}
 
@@ -2143,6 +2106,118 @@ export default function HomePage() {
                 ) : null}
               </div>
             </article>
+
+            {editingPinterestPin ? (
+              <div className="pin-drawer-backdrop" role="presentation" onClick={closePinterestPinEditor}>
+                <aside
+                  className="pin-drawer"
+                  aria-label="Modifica Pin"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  <div className="pin-drawer-head">
+                    <div>
+                      <span className="meta-label">Modifica Pin</span>
+                      <h3>{editingPinterestPin.title || "Pin senza titolo"}</h3>
+                    </div>
+                    <button className="icon-button compact" type="button" onClick={closePinterestPinEditor}>
+                      <Glyph name="back" />
+                    </button>
+                  </div>
+
+                  <div className="pin-drawer-body">
+                    {editingPinterestPin.imageUrl ? (
+                      <img className="pin-drawer-image" src={editingPinterestPin.imageUrl} alt={editingPinterestPin.title || editingPinterestPin.id} />
+                    ) : (
+                      <div className="pin-empty-image">No image</div>
+                    )}
+
+                    <label className="field">
+                      <span>Titolo</span>
+                      <input
+                        className="select-field"
+                        type="text"
+                        value={pinterestEditForm.title}
+                        onChange={(event) =>
+                          setPinterestEditForm((current) => ({
+                            ...current,
+                            title: event.target.value
+                          }))
+                        }
+                      />
+                    </label>
+
+                    <label className="field">
+                      <span>Descrizione</span>
+                      <textarea
+                        className="select-field textarea-field"
+                        value={pinterestEditForm.description}
+                        onChange={(event) =>
+                          setPinterestEditForm((current) => ({
+                            ...current,
+                            description: event.target.value
+                          }))
+                        }
+                      />
+                    </label>
+
+                    <label className="field">
+                      <span>Link</span>
+                      <input
+                        className="select-field"
+                        type="text"
+                        value={pinterestEditForm.link}
+                        onChange={(event) =>
+                          setPinterestEditForm((current) => ({
+                            ...current,
+                            link: event.target.value
+                          }))
+                        }
+                      />
+                    </label>
+
+                    <div className="preview-info-grid">
+                      <div className="preview-info-card">
+                        <span>Bacheca</span>
+                        <strong>{editingPinterestPin.boardName}</strong>
+                      </div>
+                      <div className="preview-info-card">
+                        <span>Sezione</span>
+                        <strong>{editingPinterestPin.sectionName || "Nessuna sezione"}</strong>
+                      </div>
+                      <div className="preview-info-card">
+                        <span>Privacy</span>
+                        <strong>{getPrivacyLabel(editingPinterestPin.boardPrivacy)}</strong>
+                      </div>
+                      <div className="preview-info-card">
+                        <span>Pin ID</span>
+                        <strong>{editingPinterestPin.id}</strong>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pin-drawer-actions">
+                    {editingPinterestPin.url ? (
+                      <a className="secondary-button" href={editingPinterestPin.url} target="_blank" rel="noreferrer">
+                        <Glyph name="open" />
+                        <span>Apri Pinterest</span>
+                      </a>
+                    ) : null}
+                    <button className="secondary-button" type="button" onClick={closePinterestPinEditor}>
+                      Annulla
+                    </button>
+                    <button
+                      className="primary-button"
+                      type="button"
+                      onClick={updateSelectedPinterestPin}
+                      disabled={pinterestActionLoading}
+                    >
+                      <Glyph name="check" />
+                      <span>{pinterestActionLoading ? "Salvataggio..." : "Salva Pin"}</span>
+                    </button>
+                  </div>
+                </aside>
+              </div>
+            ) : null}
           </section>
         ) : null}
 
