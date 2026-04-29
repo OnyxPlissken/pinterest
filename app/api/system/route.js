@@ -46,6 +46,8 @@ export async function GET(request) {
         "/api/explorer",
         "/api/preview",
         "/api/pinterest-admin",
+        "/api/auth/pinterest/start",
+        "/api/auth/pinterest/callback",
         "/api/generate",
         "/api/sync",
         "/api/system",

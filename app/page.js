@@ -722,6 +722,10 @@ export default function HomePage() {
     }
   }
 
+  function connectPinterestOAuth() {
+    window.location.assign("/api/auth/pinterest/start");
+  }
+
   async function refreshPinterestTree(silent = false) {
     if (!silent) {
       setPinterestLoading(true);
@@ -1907,6 +1911,10 @@ export default function HomePage() {
                 <button className="panel-button subtle" type="button" onClick={() => refreshPinterestTree()}>
                   <Glyph name="refresh" />
                   <span>{pinterestLoading ? "Aggiornamento..." : "Aggiorna"}</span>
+                </button>
+                <button className="panel-button subtle" type="button" onClick={connectPinterestOAuth}>
+                  <Glyph name="open" />
+                  <span>Connetti OAuth</span>
                 </button>
               </div>
 
