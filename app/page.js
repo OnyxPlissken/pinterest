@@ -1902,7 +1902,7 @@ export default function HomePage() {
               <div className="panel-head">
                 <div>
                   <h3>Amministrazione Pinterest</h3>
-                  <p>Naviga bacheche, sezioni e Pin pubblicati direttamente sull&apos;account collegato.</p>
+                  <p>Naviga bacheche, sezioni e Pin pubblicati direttamente sull&apos;account collegato. Le bacheche private sono incluse quando il token Pinterest le espone via API.</p>
                 </div>
                 <button className="panel-button subtle" type="button" onClick={() => refreshPinterestTree()}>
                   <Glyph name="refresh" />
