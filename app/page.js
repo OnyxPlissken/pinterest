@@ -19,6 +19,10 @@ const PIN_PRIVACY_OPTIONS = [
   { value: "PUBLIC", label: "Pubblica" },
   { value: "PROTECTED", label: "Privata" }
 ];
+const NATURAL_PIN_SORTER = new Intl.Collator("it-IT", {
+  numeric: true,
+  sensitivity: "base"
+});
 
 function Glyph({ name }) {
   const glyphs = {
@@ -271,6 +275,27 @@ function getPrivacyLabel(value) {
   return value || "Privacy non indicata";
 }
 
+function getPinSortText(pin) {
+  return pin?.title || pin?.description || pin?.id || "";
+}
+
+function comparePinsByName(first, second) {
+  return (
+    NATURAL_PIN_SORTER.compare(getPinSortText(first), getPinSortText(second)) ||
+    NATURAL_PIN_SORTER.compare(first?.id || "", second?.id || "")
+  );
+}
+
+function pinMatchesQuery(pin, query) {
+  if (!query) {
+    return true;
+  }
+
+  return [pin.title, pin.description, pin.link, pin.boardName, pin.sectionName, pin.id]
+    .filter(Boolean)
+    .some((value) => String(value).toLowerCase().includes(query));
+}
+
 function toggleArrayValue(values, nextValue) {
   return values.includes(nextValue)
     ? values.filter((value) => value !== nextValue)
@@ -412,6 +437,7 @@ export default function HomePage() {
   const [selectedPinterestBoardId, setSelectedPinterestBoardId] = useState("");
   const [selectedPinterestSectionId, setSelectedPinterestSectionId] = useState("");
   const [selectedPinterestPinIds, setSelectedPinterestPinIds] = useState([]);
+  const [pinterestPinQuery, setPinterestPinQuery] = useState("");
   const [editingPinterestPinId, setEditingPinterestPinId] = useState("");
   const [pinterestEditForm, setPinterestEditForm] = useState({
     title: "",
@@ -843,7 +869,7 @@ export default function HomePage() {
   }
 
   function selectAllPinterestPins() {
-    setSelectedPinterestPinIds(pinterestPins.map((pin) => pin.id));
+    setSelectedPinterestPinIds(visiblePinterestPins.map((pin) => pin.id));
   }
 
   function openPinterestPinEditor(pin) {
@@ -1501,6 +1527,15 @@ export default function HomePage() {
     () => pinterestTree.sectionsByBoard[pinterestEditForm.boardId] || [],
     [pinterestEditForm.boardId, pinterestTree.sectionsByBoard]
   );
+  const pinterestPinQueryNormalized = pinterestPinQuery.trim().toLowerCase();
+  const sortedPinterestPins = useMemo(
+    () => [...pinterestPins].sort(comparePinsByName),
+    [pinterestPins]
+  );
+  const visiblePinterestPins = useMemo(
+    () => sortedPinterestPins.filter((pin) => pinMatchesQuery(pin, pinterestPinQueryNormalized)),
+    [sortedPinterestPins, pinterestPinQueryNormalized]
+  );
   const explorerQueryNormalized = explorerQuery.trim().toLowerCase();
   const filteredExplorerFolders = useMemo(() => {
     const folders = explorerData?.folders ?? [];
@@ -2066,36 +2101,51 @@ export default function HomePage() {
                   <h3>Pin pubblicati</h3>
                   <p>Consulta i Pin della bacheca o della sezione selezionata.</p>
                 </div>
-                <span className="tag soft">{selectedPinterestPinIds.length || pinterestPins.length} Pin</span>
+                <span className="tag soft">
+                  {pinterestPinQueryNormalized ? `${visiblePinterestPins.length}/${pinterestPins.length}` : pinterestPins.length} Pin
+                </span>
               </div>
 
-              <div className="action-row">
-                <button className="secondary-button" type="button" onClick={selectAllPinterestPins} disabled={!pinterestPins.length}>
-                  <Glyph name="check" />
-                  <span>Seleziona tutti</span>
-                </button>
-                <button
-                  className="secondary-button"
-                  type="button"
-                  onClick={() => setSelectedPinterestPinIds([])}
-                  disabled={!selectedPinterestPinIds.length}
-                >
-                  <Glyph name="back" />
-                  <span>Pulisci</span>
-                </button>
-                <button
-                  className="secondary-button"
-                  type="button"
-                  onClick={deleteSelectedPinterestPins}
-                  disabled={!selectedPinterestPinIds.length || pinterestActionLoading}
-                >
-                  <Glyph name="log" />
-                  <span>{pinterestActionLoading ? "Operazione..." : "Elimina"}</span>
-                </button>
+              <div className="action-row pin-action-row">
+                <div className="pin-action-buttons">
+                  <button className="secondary-button" type="button" onClick={selectAllPinterestPins} disabled={!visiblePinterestPins.length}>
+                    <Glyph name="check" />
+                    <span>Seleziona tutti</span>
+                  </button>
+                  <button
+                    className="secondary-button"
+                    type="button"
+                    onClick={() => setSelectedPinterestPinIds([])}
+                    disabled={!selectedPinterestPinIds.length}
+                  >
+                    <Glyph name="back" />
+                    <span>Pulisci</span>
+                  </button>
+                  <button
+                    className="secondary-button"
+                    type="button"
+                    onClick={deleteSelectedPinterestPins}
+                    disabled={!selectedPinterestPinIds.length || pinterestActionLoading}
+                  >
+                    <Glyph name="log" />
+                    <span>{pinterestActionLoading ? "Operazione..." : "Elimina"}</span>
+                  </button>
+                </div>
+
+                <label className="pin-search">
+                  <span>Cerca Pin</span>
+                  <input
+                    className="select-field"
+                    type="search"
+                    value={pinterestPinQuery}
+                    onChange={(event) => setPinterestPinQuery(event.target.value)}
+                    placeholder="Titolo, look, bacheca..."
+                  />
+                </label>
               </div>
 
               <div className="pinterest-pin-grid">
-                {pinterestPins.map((pin) => (
+                {visiblePinterestPins.map((pin) => (
                   <article className="pinterest-pin-card" key={pin.id}>
                     <label className="pin-check">
                       <input
@@ -2116,11 +2166,13 @@ export default function HomePage() {
                   </article>
                 ))}
 
-                {!pinterestPins.length ? (
+                {!visiblePinterestPins.length ? (
                   <div className="empty-block">
                     {pinterestLoading
                       ? "Sto leggendo i Pin Pinterest..."
-                      : "Seleziona una bacheca o una sezione per visualizzare i Pin."}
+                      : pinterestPinQueryNormalized
+                        ? "Nessun Pin corrisponde alla ricerca."
+                        : "Seleziona una bacheca o una sezione per visualizzare i Pin."}
                   </div>
                 ) : null}
               </div>
