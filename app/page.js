@@ -19,6 +19,10 @@ const PIN_PRIVACY_OPTIONS = [
   { value: "PUBLIC", label: "Pubblica" },
   { value: "PROTECTED", label: "Privata" }
 ];
+const BOARD_PRIVACY_OPTIONS = [
+  { value: "PUBLIC", label: "Pubblica" },
+  { value: "SECRET", label: "Privata" }
+];
 const NATURAL_PIN_SORTER = new Intl.Collator("it-IT", {
   numeric: true,
   sensitivity: "base"
@@ -273,6 +277,10 @@ function getPrivacyLabel(value) {
     return "Tutte";
   }
   return value || "Privacy non indicata";
+}
+
+function getEditableBoardPrivacy(value) {
+  return String(value || "").toUpperCase() === "PUBLIC" ? "PUBLIC" : "SECRET";
 }
 
 function getPinSortText(pin) {
@@ -862,6 +870,55 @@ export default function HomePage() {
     const sectionId = event.target.value;
     setSelectedPinterestSectionId(sectionId);
     refreshPinterestPins(selectedPinterestBoardId, sectionId);
+  }
+
+  async function updateSelectedPinterestBoardPrivacy(event) {
+    const privacy = event.target.value;
+    const boardId = selectedPinterestBoard?.id;
+
+    if (!boardId) {
+      return;
+    }
+
+    setPinterestActionLoading(true);
+    setPinterestNotice(null);
+
+    try {
+      await fetchJson("/api/pinterest-admin", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          action: "updateBoardPrivacy",
+          boardId,
+          privacy
+        })
+      });
+
+      setPinterestTree((current) => ({
+        ...current,
+        boards: current.boards.map((board) =>
+          board.id === boardId ? { ...board, privacy } : board
+        )
+      }));
+      setPinterestPins((current) =>
+        current.map((pin) => (pin.boardId === boardId ? { ...pin, boardPrivacy: privacy } : pin))
+      );
+      setPinterestNotice({
+        type: "success",
+        text: "Privacy bacheca aggiornata."
+      });
+      await refreshPinterestTree(true);
+      await refreshPinterestPins(boardId, selectedPinterestSectionId);
+    } catch (error) {
+      setPinterestNotice({
+        type: "error",
+        text: error instanceof Error ? error.message : "Privacy bacheca non aggiornata."
+      });
+    } finally {
+      setPinterestActionLoading(false);
+    }
   }
 
   function togglePinterestPin(pinId) {
@@ -2079,8 +2136,19 @@ export default function HomePage() {
                   <strong>{allPinterestSections.length}</strong>
                 </div>
                 <div className="setting-card">
-                  <span>Privacy origine</span>
-                  <strong>{getPrivacyLabel(selectedPinterestBoard?.privacy)}</strong>
+                  <span>Privacy bacheca</span>
+                  <select
+                    className="select-field setting-select"
+                    value={getEditableBoardPrivacy(selectedPinterestBoard?.privacy)}
+                    onChange={updateSelectedPinterestBoardPrivacy}
+                    disabled={!selectedPinterestBoard || pinterestActionLoading}
+                  >
+                    {BOARD_PRIVACY_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div className="setting-card">
                   <span>Pin caricati</span>
@@ -2311,11 +2379,7 @@ export default function HomePage() {
                       </label>
                     </div>
 
-                    <div className="preview-info-grid">
-                      <div className="preview-info-card">
-                        <span>Privacy bacheca</span>
-                        <strong>{getPrivacyLabel(pinterestTree.boards.find((board) => board.id === pinterestEditForm.boardId)?.privacy)}</strong>
-                      </div>
+                    <div className="preview-info-grid pin-id-grid">
                       <div className="preview-info-card">
                         <span>Pin ID</span>
                         <strong>{editingPinterestPin.id}</strong>

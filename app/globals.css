@@ -545,6 +545,10 @@ svg {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
+.setting-select {
+  margin-top: 8px;
+}
+
 .selection-summary,
 .preview-summary-row {
   margin-top: 14px;
@@ -895,6 +899,10 @@ svg {
   font-size: 11px;
   line-height: 1.6;
   word-break: break-word;
+}
+
+.pin-id-grid {
+  grid-template-columns: 1fr;
 }
 
 .empty-preview,

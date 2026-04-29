@@ -2,6 +2,7 @@ import {
   deletePinterestAdminPins,
   getPinterestAdminPins,
   getPinterestAdminTree,
+  updatePinterestAdminBoardPrivacy,
   updatePinterestAdminPin
 } from "../../../lib/pinterest-admin";
 import { getRuntimeConfig } from "../../../lib/admin-store";
@@ -68,6 +69,15 @@ export async function POST(request) {
           title: body.title,
           description: body.description,
           link: body.link,
+          privacy: body.privacy
+        })
+      );
+    }
+
+    if (body?.action === "updateBoardPrivacy") {
+      return Response.json(
+        await updatePinterestAdminBoardPrivacy(runtimeConfig.config, {
+          boardId: body.boardId,
           privacy: body.privacy
         })
       );
