@@ -412,7 +412,9 @@ export default function HomePage() {
   const [pinterestEditForm, setPinterestEditForm] = useState({
     title: "",
     description: "",
-    link: ""
+    link: "",
+    boardId: "",
+    sectionId: ""
   });
   const [users, setUsers] = useState([]);
   const [rules, setRules] = useState([]);
@@ -662,7 +664,9 @@ export default function HomePage() {
       setPinterestEditForm({
         title: "",
         description: "",
-        link: ""
+        link: "",
+        boardId: "",
+        sectionId: ""
       });
       return;
     }
@@ -671,7 +675,9 @@ export default function HomePage() {
     setPinterestEditForm({
       title: selectedPin?.title || "",
       description: selectedPin?.description || "",
-      link: selectedPin?.link || ""
+      link: selectedPin?.link || "",
+      boardId: selectedPin?.boardId || "",
+      sectionId: selectedPin?.boardSectionId || ""
     });
   }, [editingPinterestPinId, pinterestPins]);
 
@@ -906,8 +912,8 @@ export default function HomePage() {
         body: JSON.stringify({
           action: "update",
           pinId: selectedPin.id,
-          boardId: selectedPin.boardId,
-          sectionId: selectedPin.boardSectionId,
+          boardId: pinterestEditForm.boardId || selectedPin.boardId,
+          sectionId: pinterestEditForm.sectionId,
           title: pinterestEditForm.title,
           description: pinterestEditForm.description,
           link: pinterestEditForm.link
@@ -1481,6 +1487,10 @@ export default function HomePage() {
   const editingPinterestPin = useMemo(
     () => pinterestPins.find((pin) => pin.id === editingPinterestPinId) || null,
     [editingPinterestPinId, pinterestPins]
+  );
+  const editingPinterestSections = useMemo(
+    () => pinterestTree.sectionsByBoard[pinterestEditForm.boardId] || [],
+    [pinterestEditForm.boardId, pinterestTree.sectionsByBoard]
   );
   const explorerQueryNormalized = explorerQuery.trim().toLowerCase();
   const filteredExplorerFolders = useMemo(() => {
@@ -2175,18 +2185,60 @@ export default function HomePage() {
                       />
                     </label>
 
+                    <div className="drawer-form-grid">
+                      <label className="field">
+                        <span>Bacheca</span>
+                        <select
+                          className="select-field"
+                          value={pinterestEditForm.boardId}
+                          onChange={(event) =>
+                            setPinterestEditForm((current) => ({
+                              ...current,
+                              boardId: event.target.value,
+                              sectionId: ""
+                            }))
+                          }
+                        >
+                          {pinterestTree.boards.map((board) => (
+                            <option key={board.id} value={board.id}>
+                              {board.name} - {getPrivacyLabel(board.privacy)}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+
+                      <label className="field">
+                        <span>Sezione</span>
+                        <select
+                          className="select-field"
+                          value={pinterestEditForm.sectionId}
+                          onChange={(event) =>
+                            setPinterestEditForm((current) => ({
+                              ...current,
+                              sectionId: event.target.value
+                            }))
+                          }
+                          disabled={!pinterestEditForm.boardId}
+                        >
+                          <option value="">Nessuna sezione</option>
+                          {editingPinterestSections.map((section) => (
+                            <option key={section.id} value={section.id}>
+                              {section.name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
+
                     <div className="preview-info-grid">
                       <div className="preview-info-card">
-                        <span>Bacheca</span>
-                        <strong>{editingPinterestPin.boardName}</strong>
-                      </div>
-                      <div className="preview-info-card">
-                        <span>Sezione</span>
-                        <strong>{editingPinterestPin.sectionName || "Nessuna sezione"}</strong>
-                      </div>
-                      <div className="preview-info-card">
                         <span>Privacy</span>
-                        <strong>{getPrivacyLabel(editingPinterestPin.boardPrivacy)}</strong>
+                        <strong>
+                          {getPrivacyLabel(
+                            pinterestTree.boards.find((board) => board.id === pinterestEditForm.boardId)?.privacy ||
+                              editingPinterestPin.boardPrivacy
+                          )}
+                        </strong>
                       </div>
                       <div className="preview-info-card">
                         <span>Pin ID</span>

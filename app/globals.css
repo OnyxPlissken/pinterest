@@ -1146,6 +1146,12 @@ svg {
   gap: 14px;
 }
 
+.drawer-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
 .pin-drawer-image {
   width: 100%;
   max-height: 420px;
@@ -1454,9 +1460,15 @@ svg {
   .panel-head,
   .topbar-actions,
   .action-row,
-  .auth-card-head {
+  .auth-card-head,
+  .drawer-form-grid {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .drawer-form-grid {
+    display: grid;
+    grid-template-columns: 1fr;
   }
 
   .sidebar-nav {
