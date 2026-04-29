@@ -383,6 +383,7 @@ export default function HomePage() {
   const [rulesLoading, setRulesLoading] = useState(false);
   const [settingsLoading, setSettingsLoading] = useState(false);
   const [pinterestLoading, setPinterestLoading] = useState(false);
+  const [pinterestActionLoading, setPinterestActionLoading] = useState(false);
   const [systemInfo, setSystemInfo] = useState(null);
   const [rootFolders, setRootFolders] = useState([]);
   const [season, setSeason] = useState("");
@@ -406,6 +407,12 @@ export default function HomePage() {
   const [pinterestContext, setPinterestContext] = useState(null);
   const [selectedPinterestBoardId, setSelectedPinterestBoardId] = useState("");
   const [selectedPinterestSectionId, setSelectedPinterestSectionId] = useState("");
+  const [selectedPinterestPinIds, setSelectedPinterestPinIds] = useState([]);
+  const [pinterestEditForm, setPinterestEditForm] = useState({
+    title: "",
+    description: "",
+    link: ""
+  });
   const [users, setUsers] = useState([]);
   const [rules, setRules] = useState([]);
   const [selectedRuleId, setSelectedRuleId] = useState("");
@@ -650,6 +657,24 @@ export default function HomePage() {
   }, [activeView, pinterestTree.boards.length]);
 
   useEffect(() => {
+    if (selectedPinterestPinIds.length !== 1) {
+      setPinterestEditForm({
+        title: "",
+        description: "",
+        link: ""
+      });
+      return;
+    }
+
+    const selectedPin = pinterestPins.find((pin) => pin.id === selectedPinterestPinIds[0]);
+    setPinterestEditForm({
+      title: selectedPin?.title || "",
+      description: selectedPin?.description || "",
+      link: selectedPin?.link || ""
+    });
+  }, [pinterestPins, selectedPinterestPinIds]);
+
+  useEffect(() => {
     const activeRules = rules.filter((rule) => rule.active);
     const fallbackRuleId =
       activeRules.find((rule) => rule.id === systemInfo?.settings?.defaultRuleId)?.id ||
@@ -753,6 +778,7 @@ export default function HomePage() {
     if (!boardId) {
       setPinterestPins([]);
       setPinterestContext(null);
+      setSelectedPinterestPinIds([]);
       return;
     }
 
@@ -771,6 +797,7 @@ export default function HomePage() {
         section: payload.section,
         sections: payload.sections ?? []
       });
+      setSelectedPinterestPinIds([]);
     } catch (error) {
       setPinterestNotice({
         type: "error",
@@ -792,6 +819,103 @@ export default function HomePage() {
     const sectionId = event.target.value;
     setSelectedPinterestSectionId(sectionId);
     refreshPinterestPins(selectedPinterestBoardId, sectionId);
+  }
+
+  function togglePinterestPin(pinId) {
+    setSelectedPinterestPinIds((current) => toggleArrayValue(current, pinId));
+  }
+
+  function selectAllPinterestPins() {
+    setSelectedPinterestPinIds(pinterestPins.map((pin) => pin.id));
+  }
+
+  async function deleteSelectedPinterestPins() {
+    if (!selectedPinterestPinIds.length) {
+      setPinterestNotice({
+        type: "error",
+        text: "Seleziona almeno un Pin da eliminare."
+      });
+      return;
+    }
+
+    const confirmed = window.confirm(`Eliminare ${selectedPinterestPinIds.length} Pin da Pinterest?`);
+    if (!confirmed) {
+      return;
+    }
+
+    setPinterestActionLoading(true);
+    setPinterestNotice(null);
+
+    try {
+      const payload = await fetchJson("/api/pinterest-admin", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          action: "delete",
+          pinIds: selectedPinterestPinIds
+        })
+      });
+
+      setPinterestNotice({
+        type: payload.failed ? "error" : "success",
+        text: `Eliminazione completata: ${payload.ok} ok, ${payload.failed} errori.`
+      });
+      await refreshPinterestPins(selectedPinterestBoardId, selectedPinterestSectionId);
+    } catch (error) {
+      setPinterestNotice({
+        type: "error",
+        text: error instanceof Error ? error.message : "Eliminazione Pin non completata."
+      });
+    } finally {
+      setPinterestActionLoading(false);
+    }
+  }
+
+  async function updateSelectedPinterestPin() {
+    const selectedPin = pinterestPins.find((pin) => pin.id === selectedPinterestPinIds[0]);
+    if (selectedPinterestPinIds.length !== 1 || !selectedPin) {
+      setPinterestNotice({
+        type: "error",
+        text: "Seleziona un solo Pin da modificare."
+      });
+      return;
+    }
+
+    setPinterestActionLoading(true);
+    setPinterestNotice(null);
+
+    try {
+      await fetchJson("/api/pinterest-admin", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          action: "update",
+          pinId: selectedPin.id,
+          boardId: selectedPin.boardId,
+          sectionId: selectedPin.boardSectionId,
+          title: pinterestEditForm.title,
+          description: pinterestEditForm.description,
+          link: pinterestEditForm.link
+        })
+      });
+
+      setPinterestNotice({
+        type: "success",
+        text: "Pin aggiornato."
+      });
+      await refreshPinterestPins(selectedPinterestBoardId, selectedPinterestSectionId);
+    } catch (error) {
+      setPinterestNotice({
+        type: "error",
+        text: error instanceof Error ? error.message : "Modifica Pin non completata."
+      });
+    } finally {
+      setPinterestActionLoading(false);
+    }
   }
 
   async function openExplorer(subPath = "") {
@@ -919,7 +1043,7 @@ export default function HomePage() {
         scannedCount: payload.scannedCount,
         generatedCount: payload.generatedCount,
         skippedCount: payload.skippedCount,
-        message: `${payload.previewItems.length} card mostrate${payload.rule?.name ? ` Â· ${payload.rule.name}` : ""}`
+        message: `${payload.previewItems.length} card mostrate${payload.rule?.name ? ` - ${payload.rule.name}` : ""}`
       });
     } catch (error) {
       const message =
@@ -973,7 +1097,7 @@ export default function HomePage() {
         scannedCount: payload.scannedCount,
         generatedCount: payload.generatedCount,
         skippedCount: payload.skippedCount,
-        message: `${payload.csvFilename}${payload.rule?.name ? ` Â· ${payload.rule.name}` : ""}`
+        message: `${payload.csvFilename}${payload.rule?.name ? ` - ${payload.rule.name}` : ""}`
       });
     } catch (error) {
       const message =
@@ -1852,7 +1976,7 @@ export default function HomePage() {
                     <option value="">Seleziona bacheca</option>
                     {pinterestTree.boards.map((board) => (
                       <option key={board.id} value={board.id}>
-                        {board.name} Â· {getPrivacyLabel(board.privacy)}
+                        {board.name} - {getPrivacyLabel(board.privacy)}
                       </option>
                     ))}
                   </select>
@@ -1894,32 +2018,11 @@ export default function HomePage() {
                 </div>
               </div>
 
-              <div className="pinterest-tree">
-                {pinterestTree.boards.map((board) => (
-                  <button
-                    className={`pinterest-board-row ${board.id === selectedPinterestBoardId ? "active" : ""}`}
-                    key={board.id}
-                    type="button"
-                    onClick={() => {
-                      setSelectedPinterestBoardId(board.id);
-                      setSelectedPinterestSectionId("");
-                      refreshPinterestPins(board.id, "");
-                    }}
-                  >
-                    <span>
-                      <strong>{board.name}</strong>
-                      <small>{getPrivacyLabel(board.privacy)} Â· {pinterestTree.sectionsByBoard[board.id]?.length || 0} sezioni</small>
-                    </span>
-                    <Glyph name="chevron" />
-                  </button>
-                ))}
-
-                {!pinterestTree.boards.length ? (
-                  <div className="empty-block">
-                    {pinterestLoading ? "Sto leggendo le bacheche Pinterest..." : "Nessuna bacheca caricata."}
-                  </div>
-                ) : null}
-              </div>
+              {!pinterestTree.boards.length ? (
+                <div className="empty-block">
+                  {pinterestLoading ? "Sto leggendo le bacheche Pinterest..." : "Nessuna bacheca caricata."}
+                </div>
+              ) : null}
             </article>
 
             <article className="panel">
@@ -1928,15 +2031,100 @@ export default function HomePage() {
                   <h3>Pin pubblicati</h3>
                   <p>Consulta i Pin della bacheca o della sezione selezionata.</p>
                 </div>
-                <span className="tag soft">{pinterestPins.length} Pin</span>
+                <span className="tag soft">{selectedPinterestPinIds.length || pinterestPins.length} Pin</span>
               </div>
+
+              <div className="action-row">
+                <button className="secondary-button" type="button" onClick={selectAllPinterestPins} disabled={!pinterestPins.length}>
+                  <Glyph name="check" />
+                  <span>Seleziona tutti</span>
+                </button>
+                <button
+                  className="secondary-button"
+                  type="button"
+                  onClick={() => setSelectedPinterestPinIds([])}
+                  disabled={!selectedPinterestPinIds.length}
+                >
+                  <Glyph name="back" />
+                  <span>Pulisci</span>
+                </button>
+                <button
+                  className="secondary-button"
+                  type="button"
+                  onClick={deleteSelectedPinterestPins}
+                  disabled={!selectedPinterestPinIds.length || pinterestActionLoading}
+                >
+                  <Glyph name="log" />
+                  <span>{pinterestActionLoading ? "Operazione..." : "Elimina"}</span>
+                </button>
+              </div>
+
+              {selectedPinterestPinIds.length === 1 ? (
+                <div className="pin-edit-panel">
+                  <label className="field">
+                    <span>Titolo</span>
+                    <input
+                      className="select-field"
+                      type="text"
+                      value={pinterestEditForm.title}
+                      onChange={(event) =>
+                        setPinterestEditForm((current) => ({
+                          ...current,
+                          title: event.target.value
+                        }))
+                      }
+                    />
+                  </label>
+                  <label className="field">
+                    <span>Descrizione</span>
+                    <textarea
+                      className="select-field textarea-field"
+                      value={pinterestEditForm.description}
+                      onChange={(event) =>
+                        setPinterestEditForm((current) => ({
+                          ...current,
+                          description: event.target.value
+                        }))
+                      }
+                    />
+                  </label>
+                  <label className="field">
+                    <span>Link</span>
+                    <input
+                      className="select-field"
+                      type="text"
+                      value={pinterestEditForm.link}
+                      onChange={(event) =>
+                        setPinterestEditForm((current) => ({
+                          ...current,
+                          link: event.target.value
+                        }))
+                      }
+                    />
+                  </label>
+                  <button
+                    className="primary-button"
+                    type="button"
+                    onClick={updateSelectedPinterestPin}
+                    disabled={pinterestActionLoading}
+                  >
+                    <Glyph name="check" />
+                    <span>{pinterestActionLoading ? "Salvataggio..." : "Salva Pin"}</span>
+                  </button>
+                </div>
+              ) : null}
 
               <div className="pinterest-pin-grid">
                 {pinterestPins.map((pin) => (
                   <article className="pinterest-pin-card" key={pin.id}>
-                    <div className="pin-check">
+                    <label className="pin-check">
+                      <input
+                        type="checkbox"
+                        checked={selectedPinterestPinIds.includes(pin.id)}
+                        onChange={() => togglePinterestPin(pin.id)}
+                      />
                       <span>{pin.title || "Pin senza titolo"}</span>
-                    </div>
+                    </label>
                     {pin.imageUrl ? <img src={pin.imageUrl} alt={pin.title || pin.id} /> : <div className="pin-empty-image">No image</div>}
                     <div className="pin-meta">
                       <strong>{pin.boardName}</strong>
