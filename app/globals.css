@@ -981,6 +981,16 @@ svg {
   gap: 10px;
 }
 
+.pinterest-admin-page {
+  margin-top: 14px;
+  display: grid;
+  gap: 14px;
+}
+
+.pinterest-admin-page > .panel {
+  margin-top: 0;
+}
+
 .pinterest-board-row {
   width: 100%;
   padding: 12px 13px;
@@ -1020,7 +1030,7 @@ svg {
 }
 
 .pinterest-pin-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
 }
 
 .pinterest-pin-card {
@@ -1329,8 +1339,7 @@ svg {
   .info-grid,
   .multi-grid,
   .user-detail-grid,
-  .preview-info-grid,
-  .pinterest-pin-grid {
+  .preview-info-grid {
     grid-template-columns: 1fr;
   }
 }

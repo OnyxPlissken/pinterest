@@ -258,6 +258,12 @@ function getPrivacyLabel(value) {
   if (normalized === "PROTECTED" || normalized === "SECRET") {
     return "Privata";
   }
+  if (normalized === "PUBLIC_AND_SECRET") {
+    return "Pubblica + privata";
+  }
+  if (normalized === "ALL") {
+    return "Tutte";
+  }
   return value || "Privacy non indicata";
 }
 
@@ -1891,7 +1897,7 @@ export default function HomePage() {
         ) : null}
 
         {activeView === "pinterest" ? (
-          <section className="two-column-grid pinterest-admin-grid">
+          <section className="pinterest-admin-page">
             <article className="panel">
               <div className="panel-head">
                 <div>
