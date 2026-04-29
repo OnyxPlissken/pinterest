@@ -5,6 +5,7 @@ import { buildRulePreview } from "../lib/pinterest-format";
 
 const BASE_VIEWS = [
   { key: "azione", label: "Azione", icon: "play" },
+  { key: "pinterest", label: "Pinterest", icon: "image" },
   { key: "explorer", label: "Archivio", icon: "folder" },
   { key: "log", label: "Storico", icon: "log" },
   { key: "regole", label: "Regole", icon: "rules" },
@@ -249,6 +250,17 @@ function formatPaths(paths = []) {
   return `${paths.length} cartelle selezionate`;
 }
 
+function getPrivacyLabel(value) {
+  const normalized = String(value || "").toUpperCase();
+  if (normalized === "PUBLIC") {
+    return "Pubblica";
+  }
+  if (normalized === "PROTECTED" || normalized === "SECRET") {
+    return "Privata";
+  }
+  return value || "Privacy non indicata";
+}
+
 function toggleArrayValue(values, nextValue) {
   return values.includes(nextValue)
     ? values.filter((value) => value !== nextValue)
@@ -329,6 +341,10 @@ function buildSettingsForm(settings) {
   };
 }
 
+function collectSections(sectionsByBoard = {}) {
+  return Object.values(sectionsByBoard).flatMap((sections) => sections || []);
+}
+
 function formatRole(role) {
   return role === "admin" ? "Amministratore" : "Editor";
 }
@@ -360,6 +376,8 @@ export default function HomePage() {
   const [usersLoading, setUsersLoading] = useState(false);
   const [rulesLoading, setRulesLoading] = useState(false);
   const [settingsLoading, setSettingsLoading] = useState(false);
+  const [pinterestLoading, setPinterestLoading] = useState(false);
+  const [pinterestActionLoading, setPinterestActionLoading] = useState(false);
   const [systemInfo, setSystemInfo] = useState(null);
   const [rootFolders, setRootFolders] = useState([]);
   const [season, setSeason] = useState("");
@@ -377,6 +395,15 @@ export default function HomePage() {
   const [userNotice, setUserNotice] = useState(null);
   const [rulesNotice, setRulesNotice] = useState(null);
   const [settingsNotice, setSettingsNotice] = useState(null);
+  const [pinterestNotice, setPinterestNotice] = useState(null);
+  const [pinterestTree, setPinterestTree] = useState({ boards: [], sectionsByBoard: {} });
+  const [pinterestPins, setPinterestPins] = useState([]);
+  const [pinterestContext, setPinterestContext] = useState(null);
+  const [selectedPinterestBoardId, setSelectedPinterestBoardId] = useState("");
+  const [selectedPinterestSectionId, setSelectedPinterestSectionId] = useState("");
+  const [selectedPinterestPinIds, setSelectedPinterestPinIds] = useState([]);
+  const [targetPinterestBoardId, setTargetPinterestBoardId] = useState("");
+  const [targetPinterestSectionId, setTargetPinterestSectionId] = useState("");
   const [users, setUsers] = useState([]);
   const [rules, setRules] = useState([]);
   const [selectedRuleId, setSelectedRuleId] = useState("");
@@ -613,6 +640,14 @@ export default function HomePage() {
   }, [activeView, systemInfo?.auth?.currentUser?.role]);
 
   useEffect(() => {
+    if (activeView !== "pinterest" || pinterestTree.boards.length) {
+      return;
+    }
+
+    refreshPinterestTree();
+  }, [activeView, pinterestTree.boards.length]);
+
+  useEffect(() => {
     const activeRules = rules.filter((rule) => rule.active);
     const fallbackRuleId =
       activeRules.find((rule) => rule.id === systemInfo?.settings?.defaultRuleId)?.id ||
@@ -678,6 +713,150 @@ export default function HomePage() {
       if (!silent) {
         setUsersLoading(false);
       }
+    }
+  }
+
+  async function refreshPinterestTree(silent = false) {
+    if (!silent) {
+      setPinterestLoading(true);
+    }
+    setPinterestNotice(null);
+
+    try {
+      const payload = await fetchJson("/api/pinterest-admin");
+      const boards = payload.boards ?? [];
+      const sectionsByBoard = payload.sectionsByBoard ?? {};
+
+      setPinterestTree({ boards, sectionsByBoard });
+      setSelectedPinterestBoardId((current) =>
+        current && boards.some((board) => board.id === current) ? current : boards[0]?.id || ""
+      );
+      setTargetPinterestBoardId((current) =>
+        current && boards.some((board) => board.id === current) ? current : boards[0]?.id || ""
+      );
+    } catch (error) {
+      setPinterestNotice({
+        type: "error",
+        text: error instanceof Error ? error.message : "Errore durante il caricamento Pinterest."
+      });
+    } finally {
+      if (!silent) {
+        setPinterestLoading(false);
+      }
+    }
+  }
+
+  async function refreshPinterestPins(boardId = selectedPinterestBoardId, sectionId = selectedPinterestSectionId) {
+    if (!boardId) {
+      setPinterestPins([]);
+      setPinterestContext(null);
+      setSelectedPinterestPinIds([]);
+      return;
+    }
+
+    setPinterestLoading(true);
+    setPinterestNotice(null);
+
+    try {
+      const url = `/api/pinterest-admin?boardId=${encodeURIComponent(boardId)}${
+        sectionId ? `&sectionId=${encodeURIComponent(sectionId)}` : ""
+      }`;
+      const payload = await fetchJson(url);
+
+      setPinterestPins(payload.pins ?? []);
+      setPinterestContext({
+        board: payload.board,
+        section: payload.section,
+        sections: payload.sections ?? []
+      });
+      setSelectedPinterestPinIds([]);
+    } catch (error) {
+      setPinterestNotice({
+        type: "error",
+        text: error instanceof Error ? error.message : "Errore durante il caricamento Pin."
+      });
+    } finally {
+      setPinterestLoading(false);
+    }
+  }
+
+  function handlePinterestBoardChange(event) {
+    const boardId = event.target.value;
+    setSelectedPinterestBoardId(boardId);
+    setSelectedPinterestSectionId("");
+    refreshPinterestPins(boardId, "");
+  }
+
+  function handlePinterestSectionChange(event) {
+    const sectionId = event.target.value;
+    setSelectedPinterestSectionId(sectionId);
+    refreshPinterestPins(selectedPinterestBoardId, sectionId);
+  }
+
+  function togglePinterestPin(pinId) {
+    setSelectedPinterestPinIds((current) => toggleArrayValue(current, pinId));
+  }
+
+  function selectAllPinterestPins() {
+    setSelectedPinterestPinIds(pinterestPins.map((pin) => pin.id));
+  }
+
+  async function runPinterestAdminAction(action) {
+    const pinIds =
+      selectedPinterestPinIds.length > 0
+        ? selectedPinterestPinIds
+        : pinterestPins.map((pin) => pin.id);
+
+    if (!pinIds.length) {
+      setPinterestNotice({
+        type: "error",
+        text: "Non ci sono Pin selezionati per questa operazione."
+      });
+      return;
+    }
+
+    if (action === "delete") {
+      const confirmed = window.confirm(
+        `Eliminare ${pinIds.length} Pin da Pinterest? La bacheca e la sezione non verranno eliminate.`
+      );
+      if (!confirmed) {
+        return;
+      }
+    }
+
+    setPinterestActionLoading(true);
+    setPinterestNotice(null);
+
+    try {
+      const payload = await fetchJson("/api/pinterest-admin", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          action,
+          pinIds,
+          targetBoardId: targetPinterestBoardId,
+          targetSectionId: targetPinterestSectionId
+        })
+      });
+
+      setPinterestNotice({
+        type: payload.failed ? "error" : "success",
+        text:
+          action === "move"
+            ? `Spostamento completato: ${payload.ok} ok, ${payload.failed} errori.`
+            : `Eliminazione completata: ${payload.ok} ok, ${payload.failed} errori.`
+      });
+      await refreshPinterestTree(true);
+      await refreshPinterestPins(selectedPinterestBoardId, selectedPinterestSectionId);
+    } catch (error) {
+      setPinterestNotice({
+        type: "error",
+        text: error instanceof Error ? error.message : "Operazione Pinterest non completata."
+      });
+    } finally {
+      setPinterestActionLoading(false);
     }
   }
 
@@ -1217,6 +1396,22 @@ export default function HomePage() {
     () => users.find((entry) => entry.id === selectedUserId) || null,
     [users, selectedUserId]
   );
+  const selectedPinterestBoard = useMemo(
+    () => pinterestTree.boards.find((board) => board.id === selectedPinterestBoardId) || null,
+    [pinterestTree.boards, selectedPinterestBoardId]
+  );
+  const selectedPinterestSections = useMemo(
+    () => pinterestTree.sectionsByBoard[selectedPinterestBoardId] || [],
+    [pinterestTree.sectionsByBoard, selectedPinterestBoardId]
+  );
+  const targetPinterestSections = useMemo(
+    () => pinterestTree.sectionsByBoard[targetPinterestBoardId] || [],
+    [pinterestTree.sectionsByBoard, targetPinterestBoardId]
+  );
+  const allPinterestSections = useMemo(
+    () => collectSections(pinterestTree.sectionsByBoard),
+    [pinterestTree.sectionsByBoard]
+  );
   const explorerQueryNormalized = explorerQuery.trim().toLowerCase();
   const filteredExplorerFolders = useMemo(() => {
     const folders = explorerData?.folders ?? [];
@@ -1693,6 +1888,217 @@ export default function HomePage() {
               )}
             </section>
           </>
+        ) : null}
+
+        {activeView === "pinterest" ? (
+          <section className="two-column-grid pinterest-admin-grid">
+            <article className="panel">
+              <div className="panel-head">
+                <div>
+                  <h3>Amministrazione Pinterest</h3>
+                  <p>Naviga bacheche, sezioni e Pin pubblicati direttamente sull&apos;account collegato.</p>
+                </div>
+                <button className="panel-button subtle" type="button" onClick={() => refreshPinterestTree()}>
+                  <Glyph name="refresh" />
+                  <span>{pinterestLoading ? "Aggiornamento..." : "Aggiorna"}</span>
+                </button>
+              </div>
+
+              {pinterestNotice ? <div className={`notice ${pinterestNotice.type}`}>{pinterestNotice.text}</div> : null}
+
+              <div className="form-grid">
+                <label className="field">
+                  <span>Bacheca origine</span>
+                  <select
+                    className="select-field"
+                    value={selectedPinterestBoardId}
+                    onChange={handlePinterestBoardChange}
+                    disabled={!pinterestTree.boards.length || pinterestLoading}
+                  >
+                    <option value="">Seleziona bacheca</option>
+                    {pinterestTree.boards.map((board) => (
+                      <option key={board.id} value={board.id}>
+                        {board.name} · {getPrivacyLabel(board.privacy)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="field">
+                  <span>Sezione origine</span>
+                  <select
+                    className="select-field"
+                    value={selectedPinterestSectionId}
+                    onChange={handlePinterestSectionChange}
+                    disabled={!selectedPinterestBoardId || pinterestLoading}
+                  >
+                    <option value="">Tutta la bacheca</option>
+                    {selectedPinterestSections.map((section) => (
+                      <option key={section.id} value={section.id}>
+                        {section.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              <div className="settings-grid">
+                <div className="setting-card">
+                  <span>Bacheche</span>
+                  <strong>{pinterestTree.boards.length}</strong>
+                </div>
+                <div className="setting-card">
+                  <span>Sezioni</span>
+                  <strong>{allPinterestSections.length}</strong>
+                </div>
+                <div className="setting-card">
+                  <span>Privacy origine</span>
+                  <strong>{getPrivacyLabel(selectedPinterestBoard?.privacy)}</strong>
+                </div>
+                <div className="setting-card">
+                  <span>Pin caricati</span>
+                  <strong>{pinterestPins.length}</strong>
+                </div>
+              </div>
+
+              <div className="pinterest-tree">
+                {pinterestTree.boards.map((board) => (
+                  <button
+                    className={`pinterest-board-row ${board.id === selectedPinterestBoardId ? "active" : ""}`}
+                    key={board.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedPinterestBoardId(board.id);
+                      setSelectedPinterestSectionId("");
+                      refreshPinterestPins(board.id, "");
+                    }}
+                  >
+                    <span>
+                      <strong>{board.name}</strong>
+                      <small>{getPrivacyLabel(board.privacy)} · {pinterestTree.sectionsByBoard[board.id]?.length || 0} sezioni</small>
+                    </span>
+                    <Glyph name="chevron" />
+                  </button>
+                ))}
+
+                {!pinterestTree.boards.length ? (
+                  <div className="empty-block">
+                    {pinterestLoading ? "Sto leggendo le bacheche Pinterest..." : "Nessuna bacheca caricata."}
+                  </div>
+                ) : null}
+              </div>
+            </article>
+
+            <article className="panel">
+              <div className="panel-head">
+                <div>
+                  <h3>Azioni massive</h3>
+                  <p>Sposta o elimina i Pin selezionati. I contenitori Pinterest restano sempre intatti.</p>
+                </div>
+                <span className="tag soft">{selectedPinterestPinIds.length || pinterestPins.length} Pin target</span>
+              </div>
+
+              <div className="form-grid">
+                <label className="field">
+                  <span>Bacheca destinazione</span>
+                  <select
+                    className="select-field"
+                    value={targetPinterestBoardId}
+                    onChange={(event) => {
+                      setTargetPinterestBoardId(event.target.value);
+                      setTargetPinterestSectionId("");
+                    }}
+                    disabled={!pinterestTree.boards.length}
+                  >
+                    <option value="">Seleziona bacheca</option>
+                    {pinterestTree.boards.map((board) => (
+                      <option key={board.id} value={board.id}>
+                        {board.name} · {getPrivacyLabel(board.privacy)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="field">
+                  <span>Sezione destinazione</span>
+                  <select
+                    className="select-field"
+                    value={targetPinterestSectionId}
+                    onChange={(event) => setTargetPinterestSectionId(event.target.value)}
+                    disabled={!targetPinterestBoardId}
+                  >
+                    <option value="">Nessuna sezione</option>
+                    {targetPinterestSections.map((section) => (
+                      <option key={section.id} value={section.id}>
+                        {section.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              <div className="action-row">
+                <button
+                  className="primary-button"
+                  type="button"
+                  onClick={() => runPinterestAdminAction("move")}
+                  disabled={!pinterestPins.length || !targetPinterestBoardId || pinterestActionLoading}
+                >
+                  <Glyph name="refresh" />
+                  <span>{pinterestActionLoading ? "Operazione..." : "Sposta Pin"}</span>
+                </button>
+                <button
+                  className="secondary-button"
+                  type="button"
+                  onClick={() => runPinterestAdminAction("delete")}
+                  disabled={!pinterestPins.length || pinterestActionLoading}
+                >
+                  <Glyph name="log" />
+                  <span>Elimina Pin</span>
+                </button>
+                <button className="secondary-button" type="button" onClick={selectAllPinterestPins} disabled={!pinterestPins.length}>
+                  <Glyph name="check" />
+                  <span>Seleziona tutti</span>
+                </button>
+                <button
+                  className="secondary-button"
+                  type="button"
+                  onClick={() => setSelectedPinterestPinIds([])}
+                  disabled={!selectedPinterestPinIds.length}
+                >
+                  <Glyph name="back" />
+                  <span>Pulisci</span>
+                </button>
+              </div>
+
+              <div className="pinterest-pin-grid">
+                {pinterestPins.map((pin) => (
+                  <article className="pinterest-pin-card" key={pin.id}>
+                    <label className="pin-check">
+                      <input
+                        type="checkbox"
+                        checked={selectedPinterestPinIds.includes(pin.id)}
+                        onChange={() => togglePinterestPin(pin.id)}
+                      />
+                      <span>{pin.title || "Pin senza titolo"}</span>
+                    </label>
+                    {pin.imageUrl ? <img src={pin.imageUrl} alt={pin.title || pin.id} /> : <div className="pin-empty-image">No image</div>}
+                    <div className="pin-meta">
+                      <strong>{pin.boardName}</strong>
+                      <span>{pin.sectionName || "Nessuna sezione"} · {getPrivacyLabel(pin.boardPrivacy)}</span>
+                      {pin.link ? <small>{pin.link}</small> : <small>Link vuoto</small>}
+                    </div>
+                  </article>
+                ))}
+
+                {!pinterestPins.length ? (
+                  <div className="empty-block">
+                    {pinterestLoading
+                      ? "Sto leggendo i Pin Pinterest..."
+                      : "Seleziona una bacheca o una sezione per visualizzare i Pin."}
+                  </div>
+                ) : null}
+              </div>
+            </article>
+          </section>
         ) : null}
 
         {activeView === "explorer" ? (

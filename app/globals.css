@@ -974,6 +974,102 @@ svg {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.pinterest-tree,
+.pinterest-pin-grid {
+  margin-top: 14px;
+  display: grid;
+  gap: 10px;
+}
+
+.pinterest-board-row {
+  width: 100%;
+  padding: 12px 13px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-soft);
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pinterest-board-row.active,
+.pinterest-board-row:hover {
+  border-color: var(--accent-line);
+  background: color-mix(in srgb, var(--accent) 7%, var(--surface-soft));
+}
+
+.pinterest-board-row strong,
+.pin-meta strong {
+  display: block;
+  font-size: 11px;
+}
+
+.pinterest-board-row small,
+.pin-meta span,
+.pin-meta small {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+.pinterest-pin-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.pinterest-pin-card {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-soft);
+}
+
+.pinterest-pin-card img,
+.pin-empty-image {
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  object-fit: cover;
+  background: color-mix(in srgb, var(--surface-alt) 94%, transparent);
+}
+
+.pin-empty-image {
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.pin-check {
+  min-height: 42px;
+  padding: 10px 11px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  border-bottom: 1px solid var(--line);
+}
+
+.pin-check input {
+  flex: 0 0 auto;
+  margin: 0;
+}
+
+.pin-check span {
+  min-width: 0;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.pin-meta {
+  padding: 11px;
+}
+
 .table-wrap {
   margin-top: 14px;
   overflow-x: auto;
@@ -1233,7 +1329,8 @@ svg {
   .info-grid,
   .multi-grid,
   .user-detail-grid,
-  .preview-info-grid {
+  .preview-info-grid,
+  .pinterest-pin-grid {
     grid-template-columns: 1fr;
   }
 }
