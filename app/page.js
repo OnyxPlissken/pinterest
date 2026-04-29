@@ -15,6 +15,10 @@ const BASE_VIEWS = [
 ];
 
 const LOG_STORAGE_KEY = "isaia-pinterest-log";
+const PIN_PRIVACY_OPTIONS = [
+  { value: "PUBLIC", label: "Pubblica" },
+  { value: "PROTECTED", label: "Privata" }
+];
 
 function Glyph({ name }) {
   const glyphs = {
@@ -414,7 +418,8 @@ export default function HomePage() {
     description: "",
     link: "",
     boardId: "",
-    sectionId: ""
+    sectionId: "",
+    privacy: "PUBLIC"
   });
   const [users, setUsers] = useState([]);
   const [rules, setRules] = useState([]);
@@ -666,20 +671,23 @@ export default function HomePage() {
         description: "",
         link: "",
         boardId: "",
-        sectionId: ""
+        sectionId: "",
+        privacy: "PUBLIC"
       });
       return;
     }
 
     const selectedPin = pinterestPins.find((pin) => pin.id === editingPinterestPinId);
+    const selectedBoard = pinterestTree.boards.find((board) => board.id === selectedPin?.boardId);
     setPinterestEditForm({
       title: selectedPin?.title || "",
       description: selectedPin?.description || "",
       link: selectedPin?.link || "",
       boardId: selectedPin?.boardId || "",
-      sectionId: selectedPin?.boardSectionId || ""
+      sectionId: selectedPin?.boardSectionId || "",
+      privacy: String(selectedPin?.privacy || selectedBoard?.privacy || selectedPin?.boardPrivacy || "PUBLIC").toUpperCase()
     });
-  }, [editingPinterestPinId, pinterestPins]);
+  }, [editingPinterestPinId, pinterestPins, pinterestTree.boards]);
 
   useEffect(() => {
     const activeRules = rules.filter((rule) => rule.active);
@@ -916,7 +924,8 @@ export default function HomePage() {
           sectionId: pinterestEditForm.sectionId,
           title: pinterestEditForm.title,
           description: pinterestEditForm.description,
-          link: pinterestEditForm.link
+          link: pinterestEditForm.link,
+          privacy: pinterestEditForm.privacy
         })
       });
 
@@ -2228,17 +2237,32 @@ export default function HomePage() {
                           ))}
                         </select>
                       </label>
+
+                      <label className="field">
+                        <span>Privacy Pin</span>
+                        <select
+                          className="select-field"
+                          value={pinterestEditForm.privacy}
+                          onChange={(event) =>
+                            setPinterestEditForm((current) => ({
+                              ...current,
+                              privacy: event.target.value
+                            }))
+                          }
+                        >
+                          {PIN_PRIVACY_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
                     </div>
 
                     <div className="preview-info-grid">
                       <div className="preview-info-card">
-                        <span>Privacy</span>
-                        <strong>
-                          {getPrivacyLabel(
-                            pinterestTree.boards.find((board) => board.id === pinterestEditForm.boardId)?.privacy ||
-                              editingPinterestPin.boardPrivacy
-                          )}
-                        </strong>
+                        <span>Privacy bacheca</span>
+                        <strong>{getPrivacyLabel(pinterestTree.boards.find((board) => board.id === pinterestEditForm.boardId)?.privacy)}</strong>
                       </div>
                       <div className="preview-info-card">
                         <span>Pin ID</span>

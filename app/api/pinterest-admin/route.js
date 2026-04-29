@@ -67,7 +67,8 @@ export async function POST(request) {
           sectionId: body.sectionId || "",
           title: body.title,
           description: body.description,
-          link: body.link
+          link: body.link,
+          privacy: body.privacy
         })
       );
     }
