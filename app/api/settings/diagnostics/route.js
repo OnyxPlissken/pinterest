@@ -38,6 +38,7 @@ export async function GET(request) {
       appId: pinterest.appId,
       appSecret: maskSecret(pinterest.appSecret),
       accessToken: maskSecret(pinterest.accessToken),
+      refreshToken: maskSecret(pinterest.refreshToken),
       linkUrl: pinterest.linkUrl,
       linkIsBlank: !pinterest.linkUrl
     }

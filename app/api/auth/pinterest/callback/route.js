@@ -2,7 +2,7 @@ import { Buffer } from "node:buffer";
 
 import {
   getRuntimeConfig,
-  updatePinterestAccessToken
+  updatePinterestTokens
 } from "../../../../../lib/admin-store";
 import { getSessionFromRequest } from "../../../../../lib/session";
 
@@ -122,7 +122,10 @@ export async function GET(request) {
     );
   }
 
-  await updatePinterestAccessToken(success.payload.access_token);
+  await updatePinterestTokens({
+    accessToken: success.payload.access_token,
+    refreshToken: success.payload.refresh_token || ""
+  });
 
   return new Response(null, {
     status: 302,

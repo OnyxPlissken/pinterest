@@ -13,7 +13,8 @@ const PINTEREST_SCOPES = [
   "boards:read_secret",
   "boards:write_secret",
   "pins:read_secret",
-  "pins:write_secret"
+  "pins:write_secret",
+  "offline_access"
 ];
 
 export const runtime = "nodejs";

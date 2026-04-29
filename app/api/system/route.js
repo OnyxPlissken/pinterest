@@ -67,6 +67,9 @@ export async function GET(request) {
       pinterestAccessTokenConfigured: Boolean(
         adminState.settings?.pinterest?.accessTokenConfigured
       ),
+      pinterestRefreshTokenConfigured: Boolean(
+        adminState.settings?.pinterest?.refreshTokenConfigured
+      ),
       titlePrefix: adminState.settings?.pinterest?.titlePrefix || "",
       descriptionPrefix: adminState.settings?.pinterest?.descriptionPrefix || "",
       linkUrl: adminState.settings?.pinterest?.linkUrl || "",
