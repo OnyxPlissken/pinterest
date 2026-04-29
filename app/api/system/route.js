@@ -46,6 +46,7 @@ export async function GET(request) {
         "/api/explorer",
         "/api/preview",
         "/api/generate",
+        "/api/sync",
         "/api/system",
         "/api/rules",
         "/api/settings"
@@ -59,15 +60,16 @@ export async function GET(request) {
       baseFolder: adminState.settings?.sharePoint?.baseFolder || "",
       pinterestAppId: adminState.settings?.pinterest?.appId || "",
       pinterestAppSecretConfigured: Boolean(adminState.settings?.pinterest?.appSecret),
+      pinterestAccessTokenConfigured: Boolean(
+        adminState.settings?.pinterest?.accessTokenConfigured
+      ),
       titlePrefix: adminState.settings?.pinterest?.titlePrefix || "",
       descriptionPrefix: adminState.settings?.pinterest?.descriptionPrefix || "",
       linkUrl: adminState.settings?.pinterest?.linkUrl || "",
       thumbnailMode: adminState.settings?.pinterest?.thumbnailMode || "blank",
       defaultRuleId: adminState.settings?.defaultRuleId || "",
       mediaMode: "Proxy live da SharePoint, nessun Vercel Blob",
-      pinterestApiReady: Boolean(
-        adminState.settings?.pinterest?.appId && adminState.settings?.pinterest?.appSecret
-      )
+      pinterestApiReady: Boolean(adminState.settings?.pinterest?.accessTokenConfigured)
     },
     rules: adminState.rules,
     adminStore: {

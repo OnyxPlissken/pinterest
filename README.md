@@ -13,6 +13,7 @@ Applicazione Next.js da deployare su Vercel per generare on demand un file CSV c
 - seleziona una sola immagine per look, tenendo il file con il numero finale piu basso
 - genera URL immagine pubblici serviti dall'app come proxy live da SharePoint, senza usare Blob
 - genera il CSV Pinterest senza dipendere da Vercel Blob
+- puo sincronizzare direttamente Pinterest via API, creando board/sezioni, creando nuovi Pin, aggiornando metadati, sostituendo Pin quando cambia l'immagine SharePoint ed eliminando Pin quando l'immagine sparisce dalla selezione
 - salva utenti, regole e impostazioni operative in file cifrati su SharePoint, senza dipendere da Vercel Blob
 - restituisce il CSV pronto al download dalla dashboard
 
@@ -43,8 +44,13 @@ npm run dev
 
 - `PINTEREST_TITLE_PREFIX=Isaia Napoli`
 - `PINTEREST_DESCRIPTION_PREFIX=ISAIA Napoli`
-- `PINTEREST_LINK_URL=https://www.isaia.it/`
+- `PINTEREST_LINK_URL=https://www.isaia.it/` opzionale, puo restare vuoto o essere modificato da impostazioni
 - `PINTEREST_THUMBNAIL_MODE=blank`
+- `PINTEREST_ACCESS_TOKEN` opzionale se preferisci configurarlo da variabili ambiente invece che dalle impostazioni cifrate
+
+### Sync Pinterest API
+
+Il sync usa il manifest cifrato `pinterest-sync.store` nella cartella `APP_STORAGE_FOLDER` su SharePoint per ricordare quali asset sono gia stati pubblicati. La chiave principale e l'`UniqueId` SharePoint del file, quindi un rename dello stesso file aggiorna il manifest e i metadati senza creare duplicati. Se cambia il fingerprint dell'immagine, il Pin precedente viene eliminato e ricreato perche l'update del media di un Pin non e garantito dall'API Pinterest. Se un'immagine gia sincronizzata sparisce da una cartella selezionata, il relativo Pin viene eliminato.
 
 ### Login e utenti
 

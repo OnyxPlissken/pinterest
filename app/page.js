@@ -316,6 +316,11 @@ function buildSettingsForm(settings) {
     pinterestAppSecret: "",
     pinterestAppSecretConfigured:
       settings?.pinterest?.appSecretConfigured || settings?.pinterestAppSecretConfigured || false,
+    pinterestAccessToken: "",
+    pinterestAccessTokenConfigured:
+      settings?.pinterest?.accessTokenConfigured ||
+      settings?.pinterestAccessTokenConfigured ||
+      false,
     titlePrefix: settings?.pinterest?.titlePrefix || settings?.titlePrefix || "",
     descriptionPrefix:
       settings?.pinterest?.descriptionPrefix || settings?.descriptionPrefix || "",
@@ -350,6 +355,7 @@ export default function HomePage() {
   const [collectionsLoading, setCollectionsLoading] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [generateLoading, setGenerateLoading] = useState(false);
+  const [syncLoading, setSyncLoading] = useState(false);
   const [explorerLoading, setExplorerLoading] = useState(false);
   const [usersLoading, setUsersLoading] = useState(false);
   const [rulesLoading, setRulesLoading] = useState(false);
@@ -875,6 +881,69 @@ export default function HomePage() {
     }
   }
 
+  async function syncPinterest() {
+    if (!previewReady) {
+      setActionNotice({
+        type: "error",
+        text: "Carica prima l'anteprima con la selezione corrente prima di sincronizzare Pinterest."
+      });
+      return;
+    }
+
+    setSyncLoading(true);
+    setActionNotice(null);
+
+    try {
+      const payload = await fetchJson("/api/sync", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ subPaths: selectedTargetPaths, ruleId: selectedRuleId })
+      });
+      const summary = payload.summary || {};
+      const message = [
+        `${summary.created || 0} creati`,
+        `${summary.updated || 0} aggiornati`,
+        `${summary.replaced || 0} sostituiti`,
+        `${summary.deleted || 0} eliminati`,
+        `${summary.unchanged || 0} invariati`
+      ].join(", ");
+
+      setActionNotice({
+        type: summary.failed ? "error" : "success",
+        text: summary.failed
+          ? `Sync completato con ${summary.failed} errori: ${message}`
+          : `Sync Pinterest completato: ${message}`
+      });
+      appendLog({
+        action: "Sync Pinterest",
+        status: summary.failed ? "error" : "ok",
+        paths: payload.sourcePaths,
+        scannedCount: payload.scannedCount,
+        generatedCount: payload.generatedCount,
+        skippedCount: payload.skippedCount,
+        message
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Errore durante il sync Pinterest.";
+
+      setActionNotice({
+        type: "error",
+        text: message
+      });
+      appendLog({
+        action: "Sync Pinterest",
+        status: "error",
+        paths: [...selectedTargetPaths],
+        message
+      });
+    } finally {
+      setSyncLoading(false);
+    }
+  }
+
   function downloadCsv() {
     if (!result?.csvContent || !result?.csvFilename) {
       return;
@@ -1097,6 +1166,7 @@ export default function HomePage() {
           pinterest: {
             appId: settingsForm.pinterestAppId,
             appSecret: settingsForm.pinterestAppSecret,
+            accessToken: settingsForm.pinterestAccessToken,
             titlePrefix: settingsForm.titlePrefix,
             descriptionPrefix: settingsForm.descriptionPrefix,
             linkUrl: settingsForm.linkUrl,
@@ -1513,6 +1583,15 @@ export default function HomePage() {
                 >
                   <Glyph name="play" />
                   <span>{generateLoading ? "Generazione..." : "Genera CSV"}</span>
+                </button>
+                <button
+                  className="primary-button"
+                  type="button"
+                  onClick={syncPinterest}
+                  disabled={!previewReady || syncLoading}
+                >
+                  <Glyph name="refresh" />
+                  <span>{syncLoading ? "Sync..." : "Sincronizza"}</span>
                 </button>
                 <button
                   className="secondary-button"
@@ -2771,6 +2850,28 @@ export default function HomePage() {
                       </small>
                     </label>
                     <label className="field">
+                      <span>Pinterest Access Token</span>
+                      <input
+                        className="select-field"
+                        type="password"
+                        value={settingsForm.pinterestAccessToken}
+                        placeholder={
+                          settingsForm.pinterestAccessTokenConfigured
+                            ? "Gia configurato. Inserisci solo per sostituirlo."
+                            : "Token API Pinterest"
+                        }
+                        onChange={(event) =>
+                          setSettingsForm((current) => ({
+                            ...current,
+                            pinterestAccessToken: event.target.value
+                          }))
+                        }
+                      />
+                      <small className="field-note">
+                        Usato solo server-side per creare, aggiornare e rimuovere Pin durante il sync.
+                      </small>
+                    </label>
+                    <label className="field">
                       <span>Titolo fisso default</span>
                       <input
                         className="select-field"
@@ -2799,10 +2900,10 @@ export default function HomePage() {
                       />
                     </label>
                     <label className="field">
-                      <span>Link default</span>
+                      <span>Link default opzionale</span>
                       <input
                         className="select-field"
-                        type="url"
+                        type="text"
                         value={settingsForm.linkUrl}
                         onChange={(event) =>
                           setSettingsForm((current) => ({
@@ -2811,6 +2912,9 @@ export default function HomePage() {
                           }))
                         }
                       />
+                      <small className="field-note">
+                        Puoi lasciare il campo vuoto oppure indicare un link fisso come https://www.isaia.it/.
+                      </small>
                     </label>
                     <label className="field">
                       <span>Thumbnail default</span>
@@ -2876,8 +2980,8 @@ export default function HomePage() {
                   <span>Pinterest API</span>
                   <strong>
                     {systemInfo?.settings?.pinterestApiReady
-                      ? "App ID e secret configurati"
-                      : "In attesa credenziali applicative"}
+                      ? "Access token configurato"
+                      : "In attesa access token"}
                   </strong>
                 </div>
                 <div className="setting-card">
