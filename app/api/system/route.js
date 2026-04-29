@@ -52,7 +52,8 @@ export async function GET(request) {
         "/api/sync",
         "/api/system",
         "/api/rules",
-        "/api/settings"
+        "/api/settings",
+        "/api/settings/diagnostics"
       ],
       publicRoutes: ["/login", "/media", "/api/health"]
     },
