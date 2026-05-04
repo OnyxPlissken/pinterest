@@ -718,35 +718,6 @@ svg {
   overflow: auto;
 }
 
-.direct-import-toggle {
-  padding: 12px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--surface) 88%, transparent);
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 10px;
-  align-items: start;
-}
-
-.direct-import-toggle input {
-  margin-top: 2px;
-}
-
-.direct-import-toggle span,
-.direct-import-toggle strong,
-.direct-import-toggle small {
-  min-width: 0;
-  display: block;
-}
-
-.direct-import-toggle small {
-  margin-top: 4px;
-  color: var(--muted);
-  font-size: 11px;
-  line-height: 1.45;
-}
-
 .decision-modal-actions {
   border-top: 1px solid var(--line);
   border-bottom: 0;

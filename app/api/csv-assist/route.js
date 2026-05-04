@@ -19,7 +19,6 @@ export async function POST(request) {
       subPath: body?.subPath ?? "",
       ruleId: body?.ruleId ?? "",
       strategy: body?.strategy ?? "newOnly",
-      directImport: body?.directImport === true,
       origin: request.nextUrl.origin
     };
 
