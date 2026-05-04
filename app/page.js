@@ -23,6 +23,28 @@ const BOARD_PRIVACY_OPTIONS = [
   { value: "PUBLIC", label: "Pubblica" },
   { value: "SECRET", label: "Privata" }
 ];
+const CSV_ASSIST_STRATEGIES = [
+  {
+    value: "newOnly",
+    label: "Solo nuovi",
+    description: "Salta asset gia tracciati o gia esportati."
+  },
+  {
+    value: "replaceChanged",
+    label: "Sostituisci modificati",
+    description: "Elimina i vecchi Pin identificati e genera CSV per nuovi/sostitutivi."
+  },
+  {
+    value: "regenerateSelection",
+    label: "Rigenera selezione",
+    description: "Elimina i Pin target identificati e genera CSV completo per la selezione."
+  },
+  {
+    value: "reportOnly",
+    label: "Solo report",
+    description: "Analizza differenze senza generare CSV e senza eliminare Pin."
+  }
+];
 const NATURAL_PIN_SORTER = new Intl.Collator("it-IT", {
   numeric: true,
   sensitivity: "base"
@@ -414,6 +436,7 @@ export default function HomePage() {
   const [collectionsLoading, setCollectionsLoading] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [generateLoading, setGenerateLoading] = useState(false);
+  const [csvAssistLoading, setCsvAssistLoading] = useState(false);
   const [syncLoading, setSyncLoading] = useState(false);
   const [explorerLoading, setExplorerLoading] = useState(false);
   const [usersLoading, setUsersLoading] = useState(false);
@@ -432,6 +455,8 @@ export default function HomePage() {
   const [explorerQuery, setExplorerQuery] = useState("");
   const [preview, setPreview] = useState(null);
   const [result, setResult] = useState(null);
+  const [csvAssist, setCsvAssist] = useState(null);
+  const [csvAssistStrategy, setCsvAssistStrategy] = useState("newOnly");
   const [operationLogs, setOperationLogs] = useState([]);
   const [actionNotice, setActionNotice] = useState(null);
   const [explorerNotice, setExplorerNotice] = useState(null);
@@ -1053,6 +1078,7 @@ export default function HomePage() {
   function resetOutputs() {
     setPreview(null);
     setResult(null);
+    setCsvAssist(null);
     setActionNotice(null);
   }
 
@@ -1064,6 +1090,16 @@ export default function HomePage() {
   function handleRuleChange(event) {
     setSelectedRuleId(event.target.value);
     resetOutputs();
+  }
+
+  function handleCsvAssistStrategyChange(event) {
+    const strategy = event.target.value;
+    setCsvAssistStrategy(strategy);
+    setCsvAssist(null);
+    setResult(null);
+    if (previewReady) {
+      loadCsvAssistPreflight(strategy, true);
+    }
   }
 
   function toggleLevel5(subPath) {
@@ -1131,6 +1167,7 @@ export default function HomePage() {
     setPreviewLoading(true);
     setActionNotice(null);
     setResult(null);
+    setCsvAssist(null);
 
     try {
       const payload = await fetchJson("/api/preview", {
@@ -1142,6 +1179,7 @@ export default function HomePage() {
       });
 
       setPreview(payload);
+      await loadCsvAssistPreflight(csvAssistStrategy, true);
       setActionNotice({
         type: "success",
         text: `Anteprima pronta per ${formatPaths(payload.sourcePaths)}`
@@ -1174,6 +1212,60 @@ export default function HomePage() {
     }
   }
 
+  async function loadCsvAssistPreflight(strategy = csvAssistStrategy, silent = false) {
+    if (!selectedTargetPaths.length) {
+      if (!silent) {
+        setActionNotice({
+          type: "error",
+          text: "Seleziona almeno una cartella finale prima di analizzare il CSV."
+        });
+      }
+      return null;
+    }
+
+    setCsvAssistLoading(true);
+    if (!silent) {
+      setActionNotice(null);
+    }
+
+    try {
+      const payload = await fetchJson("/api/csv-assist", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          action: "preflight",
+          subPaths: selectedTargetPaths,
+          ruleId: selectedRuleId,
+          strategy
+        })
+      });
+
+      setCsvAssist(payload);
+      if (!silent) {
+        const summary = payload.summary || {};
+        setActionNotice({
+          type: "success",
+          text: `Analisi CSV pronta: ${summary.needsCsv || 0} righe CSV, ${summary.deletable || 0} Pin eliminabili via API.`
+        });
+      }
+      return payload;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Analisi CSV non completata.";
+      setCsvAssist(null);
+      if (!silent) {
+        setActionNotice({
+          type: "error",
+          text: message
+        });
+      }
+      return null;
+    } finally {
+      setCsvAssistLoading(false);
+    }
+  }
+
   async function generateCsv() {
     if (!previewReady) {
       setActionNotice({
@@ -1187,27 +1279,50 @@ export default function HomePage() {
     setActionNotice(null);
 
     try {
-      const payload = await fetchJson("/api/generate", {
+      let preflight = csvAssist;
+      if (!preflight || preflight.strategy !== csvAssistStrategy) {
+        preflight = await loadCsvAssistPreflight(csvAssistStrategy, true);
+      }
+
+      const deletable = preflight?.summary?.deletable || 0;
+      if (["replaceChanged", "regenerateSelection"].includes(csvAssistStrategy) && deletable) {
+        const confirmed = window.confirm(
+          `La strategia scelta eliminera ${deletable} Pin gia identificati su Pinterest prima di generare il CSV. Continuare?`
+        );
+        if (!confirmed) {
+          return;
+        }
+      }
+
+      const payload = await fetchJson("/api/csv-assist", {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({ subPaths: selectedTargetPaths, ruleId: selectedRuleId })
+        body: JSON.stringify({
+          action: "generate",
+          subPaths: selectedTargetPaths,
+          ruleId: selectedRuleId,
+          strategy: csvAssistStrategy
+        })
       });
 
       setResult(payload);
+      setCsvAssist(payload);
       setActionNotice({
-        type: "success",
-        text: `CSV generato correttamente per ${formatPaths(payload.sourcePaths)}`
+        type: payload.summary?.failed ? "error" : "success",
+        text: payload.csvContent
+          ? `CSV assist generato: ${payload.generatedCount} righe, ${payload.deletedCount || 0} Pin eliminati.`
+          : `CSV assist completato: nessuna nuova riga da esportare.`
       });
       appendLog({
-        action: "Generazione CSV",
-        status: "ok",
+        action: "CSV Sync Assist",
+        status: payload.summary?.failed ? "error" : "ok",
         paths: payload.sourcePaths,
         scannedCount: payload.scannedCount,
         generatedCount: payload.generatedCount,
         skippedCount: payload.skippedCount,
-        message: `${payload.csvFilename}${payload.rule?.name ? ` - ${payload.rule.name}` : ""}`
+        message: payload.csvFilename || `Nessun CSV - ${csvAssistStrategy}`
       });
     } catch (error) {
       const message =
@@ -1940,6 +2055,92 @@ export default function HomePage() {
                   ))}
                 </div>
               ) : null}
+
+              <div className="csv-assist-panel">
+                <div className="editor-block-head">
+                  <div>
+                    <h4>CSV Sync Assist</h4>
+                    <small>Controlla duplicati e sostituzioni prima di generare il CSV.</small>
+                  </div>
+                  <span className="tag soft">
+                    {csvAssist ? `${csvAssist.summary?.needsCsv || 0} righe CSV` : "Da analizzare"}
+                  </span>
+                </div>
+
+                <div className="form-grid csv-assist-controls">
+                  <label className="field">
+                    <span>Strategia CSV</span>
+                    <select
+                      className="select-field"
+                      value={csvAssistStrategy}
+                      onChange={handleCsvAssistStrategyChange}
+                      disabled={csvAssistLoading || generateLoading}
+                    >
+                      {CSV_ASSIST_STRATEGIES.map((strategy) => (
+                        <option key={strategy.value} value={strategy.value}>
+                          {strategy.label}
+                        </option>
+                      ))}
+                    </select>
+                    <small className="field-note">
+                      {CSV_ASSIST_STRATEGIES.find((strategy) => strategy.value === csvAssistStrategy)?.description}
+                    </small>
+                  </label>
+
+                  <div className="csv-assist-actions">
+                    <button
+                      className="secondary-button"
+                      type="button"
+                      onClick={() => loadCsvAssistPreflight(csvAssistStrategy)}
+                      disabled={!selectedTargetPaths.length || csvAssistLoading}
+                    >
+                      <Glyph name="refresh" />
+                      <span>{csvAssistLoading ? "Analisi..." : "Analizza CSV"}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {csvAssist ? (
+                  <>
+                    <div className="preview-summary-row compact">
+                      <div className="summary-item">
+                        <span>Nuovi</span>
+                        <strong>{csvAssist.summary?.create || 0}</strong>
+                      </div>
+                      <div className="summary-item">
+                        <span>Sostituzioni</span>
+                        <strong>{csvAssist.summary?.replace || 0}</strong>
+                      </div>
+                      <div className="summary-item">
+                        <span>Modificati non esportati</span>
+                        <strong>{csvAssist.summary?.changed || 0}</strong>
+                      </div>
+                      <div className="summary-item">
+                        <span>Invariati</span>
+                        <strong>{csvAssist.summary?.unchanged || 0}</strong>
+                      </div>
+                      <div className="summary-item">
+                        <span>Delete via API</span>
+                        <strong>{csvAssist.summary?.deletable || 0}</strong>
+                      </div>
+                    </div>
+
+                    {csvAssist.actions?.length ? (
+                      <div className="csv-assist-list">
+                        {csvAssist.actions.slice(0, 8).map((action, index) => (
+                          <div className="csv-assist-row" key={`${action.type}-${action.pinId}-${action.filename}-${index}`}>
+                            <span className={`status-pill ${action.type === "failed" ? "error" : "ok"}`}>
+                              {action.type}
+                            </span>
+                            <strong>{action.title || action.filename || action.pinId || "Elemento"}</strong>
+                            <small>{action.reason}</small>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                  </>
+                ) : null}
+              </div>
 
               <div className="action-row">
                 <button

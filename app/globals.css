@@ -558,6 +558,60 @@ svg {
   margin-top: 12px;
 }
 
+.csv-assist-panel {
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface-soft);
+}
+
+.csv-assist-panel small {
+  color: var(--muted);
+}
+
+.csv-assist-controls {
+  align-items: end;
+}
+
+.csv-assist-actions {
+  display: flex;
+  align-items: end;
+  justify-content: flex-end;
+}
+
+.csv-assist-list {
+  margin-top: 12px;
+  display: grid;
+  gap: 8px;
+}
+
+.csv-assist-row {
+  min-width: 0;
+  padding: 10px 11px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface) 86%, transparent);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 6px 10px;
+  align-items: center;
+}
+
+.csv-assist-row strong,
+.csv-assist-row small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.csv-assist-row small {
+  grid-column: 2;
+  color: var(--muted);
+  font-size: 10px;
+}
+
 .selected-chip-wrap {
   margin-top: 14px;
   display: flex;
@@ -1506,6 +1560,14 @@ svg {
   .pin-search {
     width: 100%;
     margin-left: 0;
+  }
+
+  .csv-assist-actions {
+    justify-content: stretch;
+  }
+
+  .csv-assist-actions .secondary-button {
+    width: 100%;
   }
 
   .drawer-form-grid {
