@@ -2427,23 +2427,27 @@ export default function HomePage() {
         {activeView === "pinterest" ? (
           <section className="pinterest-admin-page">
             <article className="panel">
-              <div className="panel-head">
+              <div className="panel-head pinterest-admin-head">
                 <div>
                   <h3>Amministrazione Pinterest</h3>
                   <p>Naviga bacheche, sezioni e Pin pubblicati direttamente sull&apos;account collegato. Le bacheche private sono incluse quando il token Pinterest le espone via API.</p>
                 </div>
-                <button className="panel-button subtle" type="button" onClick={() => refreshPinterestTree()}>
-                  <Glyph name="refresh" />
-                  <span>{pinterestLoading ? "Aggiornamento..." : "Aggiorna"}</span>
-                </button>
-                <button className="panel-button" type="button" onClick={() => openPinterestCreateModal("board")}>
-                  <Glyph name="plus" />
-                  <span>Crea</span>
-                </button>
-                <button className="panel-button subtle" type="button" onClick={connectPinterestOAuth}>
-                  <Glyph name="open" />
-                  <span>Connetti OAuth</span>
-                </button>
+                <div className="pinterest-admin-actions">
+                  <button className="panel-button pinterest-create-button" type="button" onClick={() => openPinterestCreateModal("board")}>
+                    <Glyph name="plus" />
+                    <span>Crea</span>
+                  </button>
+                  <div className="pinterest-admin-utilities">
+                    <button className="panel-button subtle" type="button" onClick={() => refreshPinterestTree()}>
+                      <Glyph name="refresh" />
+                      <span>{pinterestLoading ? "Aggiornamento..." : "Aggiorna"}</span>
+                    </button>
+                    <button className="panel-button subtle" type="button" onClick={connectPinterestOAuth}>
+                      <Glyph name="open" />
+                      <span>Connetti OAuth</span>
+                    </button>
+                  </div>
+                </div>
               </div>
 
               {pinterestNotice ? <div className={`notice ${pinterestNotice.type}`}>{pinterestNotice.text}</div> : null}

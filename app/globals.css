@@ -480,6 +480,36 @@ svg {
   line-height: 1.7;
 }
 
+.pinterest-admin-head {
+  align-items: flex-start;
+}
+
+.pinterest-admin-head > div:first-child {
+  min-width: 0;
+  max-width: 760px;
+}
+
+.pinterest-admin-actions {
+  margin-left: auto;
+  display: grid;
+  grid-template-columns: auto auto;
+  align-items: start;
+  gap: 22px;
+  white-space: nowrap;
+}
+
+.pinterest-admin-utilities {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pinterest-create-button {
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
 .inline-actions,
 .action-row,
 .preview-meta,
@@ -1705,6 +1735,24 @@ svg {
   .drawer-form-grid {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .pinterest-admin-actions {
+    width: 100%;
+    margin-left: 0;
+    grid-template-columns: 1fr;
+    gap: 8px;
+    white-space: normal;
+  }
+
+  .pinterest-admin-utilities {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .pinterest-admin-actions .panel-button {
+    justify-content: center;
   }
 
   .pin-search {
