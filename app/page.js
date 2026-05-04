@@ -458,6 +458,7 @@ export default function HomePage() {
   const [csvAssist, setCsvAssist] = useState(null);
   const [csvAssistStrategy, setCsvAssistStrategy] = useState("newOnly");
   const [csvAssistModalOpen, setCsvAssistModalOpen] = useState(false);
+  const [csvAssistDirectImport, setCsvAssistDirectImport] = useState(false);
   const [operationLogs, setOperationLogs] = useState([]);
   const [actionNotice, setActionNotice] = useState(null);
   const [explorerNotice, setExplorerNotice] = useState(null);
@@ -1081,6 +1082,7 @@ export default function HomePage() {
     setResult(null);
     setCsvAssist(null);
     setCsvAssistModalOpen(false);
+    setCsvAssistDirectImport(false);
     setActionNotice(null);
   }
 
@@ -1102,6 +1104,9 @@ export default function HomePage() {
     setCsvAssist(null);
     setResult(null);
     setCsvAssistStrategy(strategy);
+    if (strategy === "reportOnly") {
+      setCsvAssistDirectImport(false);
+    }
     if (previewReady && csvAssistModalOpen) {
       loadCsvAssistPreflight(strategy, true);
     }
@@ -1303,6 +1308,16 @@ export default function HomePage() {
       }
 
       const deletable = preflight?.summary?.deletable || 0;
+      const needsCsv = preflight?.summary?.needsCsv || 0;
+      if (csvAssistDirectImport && needsCsv) {
+        const confirmed = window.confirm(
+          `L'app provera a creare direttamente ${needsCsv} Pin su Pinterest via API. Se Pinterest blocca l'app in trial, l'operazione fallira e potrai usare il CSV. Continuare?`
+        );
+        if (!confirmed) {
+          return;
+        }
+      }
+
       if (["replaceChanged", "regenerateSelection"].includes(csvAssistStrategy) && deletable) {
         const confirmed = window.confirm(
           `La strategia scelta eliminera ${deletable} Pin gia identificati su Pinterest prima di generare il CSV. Continuare?`
@@ -1321,7 +1336,8 @@ export default function HomePage() {
           action: "generate",
           subPaths: selectedTargetPaths,
           ruleId: selectedRuleId,
-          strategy: csvAssistStrategy
+          strategy: csvAssistStrategy,
+          directImport: csvAssistDirectImport
         })
       });
 
@@ -1330,7 +1346,9 @@ export default function HomePage() {
       setCsvAssistModalOpen(false);
       setActionNotice({
         type: payload.summary?.failed ? "error" : "success",
-        text: payload.csvContent
+        text: payload.directImport
+          ? `Import diretto completato: ${payload.importedCount || 0} Pin creati, ${payload.deletedCount || 0} Pin eliminati.`
+          : payload.csvContent
           ? `CSV assist generato: ${payload.generatedCount} righe, ${payload.deletedCount || 0} Pin eliminati.`
           : `CSV assist completato: nessuna nuova riga da esportare.`
       });
@@ -1341,7 +1359,9 @@ export default function HomePage() {
         scannedCount: payload.scannedCount,
         generatedCount: payload.generatedCount,
         skippedCount: payload.skippedCount,
-        message: payload.csvFilename || `Nessun CSV - ${csvAssistStrategy}`
+        message: payload.directImport
+          ? `Import diretto API - ${payload.importedCount || 0} Pin`
+          : payload.csvFilename || `Nessun CSV - ${csvAssistStrategy}`
       });
     } catch (error) {
       const message =
@@ -2202,6 +2222,21 @@ export default function HomePage() {
                         </div>
                       )}
 
+                      <label className="direct-import-toggle">
+                        <input
+                          type="checkbox"
+                          checked={csvAssistDirectImport}
+                          onChange={(event) => setCsvAssistDirectImport(event.target.checked)}
+                          disabled={generateLoading || csvAssistLoading || csvAssistStrategy === "reportOnly"}
+                        />
+                        <span>
+                          <strong>Importa direttamente su Pinterest</strong>
+                          <small>
+                            Se attivo, l'app prova a creare i Pin via API e non genera il file CSV. Se Pinterest blocca l'app in trial, disattivalo e usa il CSV.
+                          </small>
+                        </span>
+                      </label>
+
                       {csvAssist?.actions?.length ? (
                         <div className="csv-assist-list modal-list">
                           {csvAssist.actions.slice(0, 6).map((action, index) => (
@@ -2224,7 +2259,17 @@ export default function HomePage() {
                     </button>
                     <button className="primary-button" type="button" onClick={generateCsv} disabled={generateLoading || csvAssistLoading || !csvAssist}>
                       <Glyph name="check" />
-                      <span>{generateLoading ? "Genero..." : csvAssistStrategy === "reportOnly" ? "Mostra report" : "Conferma e genera CSV"}</span>
+                      <span>
+                        {generateLoading
+                          ? csvAssistDirectImport
+                            ? "Importo..."
+                            : "Genero..."
+                          : csvAssistStrategy === "reportOnly"
+                            ? "Mostra report"
+                            : csvAssistDirectImport
+                              ? "Conferma e importa"
+                              : "Conferma e genera CSV"}
+                      </span>
                     </button>
                   </div>
                 </section>
