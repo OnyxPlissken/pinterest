@@ -1,4 +1,6 @@
 import {
+  createPinterestAdminBoard,
+  createPinterestAdminSection,
   deletePinterestAdminPins,
   getPinterestAdminPins,
   getPinterestAdminTree,
@@ -79,6 +81,24 @@ export async function POST(request) {
         await updatePinterestAdminBoardPrivacy(runtimeConfig.config, {
           boardId: body.boardId,
           privacy: body.privacy
+        })
+      );
+    }
+
+    if (body?.action === "createBoard") {
+      return Response.json(
+        await createPinterestAdminBoard(runtimeConfig.config, {
+          name: body.name,
+          privacy: body.privacy || "SECRET"
+        })
+      );
+    }
+
+    if (body?.action === "createSection") {
+      return Response.json(
+        await createPinterestAdminSection(runtimeConfig.config, {
+          boardId: body.boardId,
+          name: body.name
         })
       );
     }

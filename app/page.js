@@ -458,6 +458,14 @@ export default function HomePage() {
   const [csvAssist, setCsvAssist] = useState(null);
   const [csvAssistStrategy, setCsvAssistStrategy] = useState("newOnly");
   const [csvAssistModalOpen, setCsvAssistModalOpen] = useState(false);
+  const [csvAssistCreateContainers, setCsvAssistCreateContainers] = useState(true);
+  const [pinterestCreateModalOpen, setPinterestCreateModalOpen] = useState(false);
+  const [pinterestCreateForm, setPinterestCreateForm] = useState({
+    type: "board",
+    name: "",
+    boardId: "",
+    privacy: "SECRET"
+  });
   const [operationLogs, setOperationLogs] = useState([]);
   const [actionNotice, setActionNotice] = useState(null);
   const [explorerNotice, setExplorerNotice] = useState(null);
@@ -947,6 +955,71 @@ export default function HomePage() {
     }
   }
 
+  function openPinterestCreateModal(type = "board") {
+    setPinterestCreateForm({
+      type,
+      name: "",
+      boardId: selectedPinterestBoardId || pinterestTree.boards[0]?.id || "",
+      privacy: "SECRET"
+    });
+    setPinterestCreateModalOpen(true);
+    setPinterestNotice(null);
+  }
+
+  async function createPinterestContainer() {
+    const isBoard = pinterestCreateForm.type === "board";
+    if (!pinterestCreateForm.name.trim()) {
+      setPinterestNotice({
+        type: "error",
+        text: isBoard ? "Inserisci il nome della bacheca." : "Inserisci il nome della sezione."
+      });
+      return;
+    }
+
+    if (!isBoard && !pinterestCreateForm.boardId) {
+      setPinterestNotice({
+        type: "error",
+        text: "Seleziona la bacheca in cui creare la sezione."
+      });
+      return;
+    }
+
+    setPinterestActionLoading(true);
+    setPinterestNotice(null);
+
+    try {
+      await fetchJson("/api/pinterest-admin", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          action: isBoard ? "createBoard" : "createSection",
+          name: pinterestCreateForm.name,
+          boardId: pinterestCreateForm.boardId,
+          privacy: pinterestCreateForm.privacy
+        })
+      });
+
+      setPinterestCreateModalOpen(false);
+      setPinterestNotice({
+        type: "success",
+        text: isBoard ? "Bacheca creata." : "Sezione creata."
+      });
+      await refreshPinterestTree(true);
+      if (!isBoard) {
+        await refreshPinterestPins(pinterestCreateForm.boardId, selectedPinterestSectionId);
+      }
+    } catch (error) {
+      setPinterestNotice({
+        type: "error",
+        text: error instanceof Error ? error.message : "Creazione Pinterest non completata."
+      });
+    } finally {
+      setPinterestActionLoading(false);
+    }
+  }
+
   function togglePinterestPin(pinId) {
     setSelectedPinterestPinIds((current) => toggleArrayValue(current, pinId));
   }
@@ -1321,7 +1394,8 @@ export default function HomePage() {
           action: "generate",
           subPaths: selectedTargetPaths,
           ruleId: selectedRuleId,
-          strategy: csvAssistStrategy
+          strategy: csvAssistStrategy,
+          createMissingContainers: csvAssistCreateContainers
         })
       });
 
@@ -1331,7 +1405,7 @@ export default function HomePage() {
       setActionNotice({
         type: payload.summary?.failed ? "error" : "success",
         text: payload.csvContent
-          ? `CSV assist generato: ${payload.generatedCount} righe, ${payload.deletedCount || 0} Pin eliminati.`
+          ? `CSV assist generato: ${payload.generatedCount} righe, ${payload.deletedCount || 0} Pin eliminati, ${payload.containersCreated?.createdBoards?.length || 0} bacheche e ${payload.containersCreated?.createdSections?.length || 0} sezioni create.`
           : `CSV assist completato: nessuna nuova riga da esportare.`
       });
       appendLog({
@@ -2190,6 +2264,14 @@ export default function HomePage() {
                           <span>Saltati</span>
                           <strong>{csvAssist?.summary?.unchanged || 0}</strong>
                         </div>
+                        <div className="summary-item">
+                          <span>Bacheche mancanti</span>
+                          <strong>{csvAssist?.containers?.missingBoards?.length || 0}</strong>
+                        </div>
+                        <div className="summary-item">
+                          <span>Sezioni mancanti</span>
+                          <strong>{csvAssist?.containers?.missingSections?.length || 0}</strong>
+                        </div>
                       </div>
 
                       {csvAssist?.summary?.deletable ? (
@@ -2201,6 +2283,23 @@ export default function HomePage() {
                           Con questa scelta non risultano eliminazioni automatiche da fare adesso.
                         </div>
                       )}
+
+                      {(csvAssist?.containers?.missingBoards?.length || csvAssist?.containers?.missingSections?.length) ? (
+                        <label className="direct-import-toggle">
+                          <input
+                            type="checkbox"
+                            checked={csvAssistCreateContainers}
+                            onChange={(event) => setCsvAssistCreateContainers(event.target.checked)}
+                            disabled={generateLoading || csvAssistLoading}
+                          />
+                          <span>
+                            <strong>Crea bacheche e sezioni mancanti prima del CSV</strong>
+                            <small>
+                              Le bacheche mancanti vengono create private. Le sezioni non hanno privacy propria e seguono quella della bacheca.
+                            </small>
+                          </span>
+                        </label>
+                      ) : null}
 
                       {csvAssist?.actions?.length ? (
                         <div className="csv-assist-list modal-list">
@@ -2337,6 +2436,10 @@ export default function HomePage() {
                   <Glyph name="refresh" />
                   <span>{pinterestLoading ? "Aggiornamento..." : "Aggiorna"}</span>
                 </button>
+                <button className="panel-button" type="button" onClick={() => openPinterestCreateModal("board")}>
+                  <Glyph name="plus" />
+                  <span>Crea</span>
+                </button>
                 <button className="panel-button subtle" type="button" onClick={connectPinterestOAuth}>
                   <Glyph name="open" />
                   <span>Connetti OAuth</span>
@@ -2405,6 +2508,10 @@ export default function HomePage() {
                   </select>
                 </div>
                 <div className="setting-card">
+                  <span>Privacy sezione</span>
+                  <strong>{selectedPinterestSectionId ? `${getPrivacyLabel(selectedPinterestBoard?.privacy)} (eredita dalla bacheca)` : "Seleziona una sezione"}</strong>
+                </div>
+                <div className="setting-card">
                   <span>Pin caricati</span>
                   <strong>{pinterestPins.length}</strong>
                 </div>
@@ -2416,6 +2523,119 @@ export default function HomePage() {
                 </div>
               ) : null}
             </article>
+
+            {pinterestCreateModalOpen ? (
+              <div className="modal-backdrop" role="presentation" onClick={() => setPinterestCreateModalOpen(false)}>
+                <section className="decision-modal compact-modal" role="dialog" aria-modal="true" aria-label="Crea contenitore Pinterest" onClick={(event) => event.stopPropagation()}>
+                  <div className="decision-modal-head">
+                    <div>
+                      <span className="meta-label">Amministrazione Pinterest</span>
+                      <h3>Crea bacheca o sezione</h3>
+                      <p>Le bacheche nuove sono private di default. Le sezioni non hanno privacy autonoma: ereditano sempre quella della bacheca.</p>
+                    </div>
+                    <button className="icon-button compact" type="button" onClick={() => setPinterestCreateModalOpen(false)}>
+                      <Glyph name="back" />
+                    </button>
+                  </div>
+
+                  <div className="decision-modal-body single-column">
+                    <div className="form-grid">
+                      <label className="field">
+                        <span>Tipo</span>
+                        <select
+                          className="select-field"
+                          value={pinterestCreateForm.type}
+                          onChange={(event) =>
+                            setPinterestCreateForm((current) => ({
+                              ...current,
+                              type: event.target.value
+                            }))
+                          }
+                        >
+                          <option value="board">Bacheca</option>
+                          <option value="section">Sezione</option>
+                        </select>
+                      </label>
+
+                      <label className="field">
+                        <span>Nome</span>
+                        <input
+                          className="select-field"
+                          type="text"
+                          value={pinterestCreateForm.name}
+                          onChange={(event) =>
+                            setPinterestCreateForm((current) => ({
+                              ...current,
+                              name: event.target.value
+                            }))
+                          }
+                          placeholder={pinterestCreateForm.type === "board" ? "Nome bacheca" : "Nome sezione"}
+                        />
+                      </label>
+
+                      {pinterestCreateForm.type === "section" ? (
+                        <label className="field">
+                          <span>Bacheca</span>
+                          <select
+                            className="select-field"
+                            value={pinterestCreateForm.boardId}
+                            onChange={(event) =>
+                              setPinterestCreateForm((current) => ({
+                                ...current,
+                                boardId: event.target.value
+                              }))
+                            }
+                          >
+                            {pinterestTree.boards.map((board) => (
+                              <option key={board.id} value={board.id}>
+                                {board.name} - {getPrivacyLabel(board.privacy)}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      ) : (
+                        <label className="field">
+                          <span>Privacy bacheca</span>
+                          <select
+                            className="select-field"
+                            value={pinterestCreateForm.privacy}
+                            onChange={(event) =>
+                              setPinterestCreateForm((current) => ({
+                                ...current,
+                                privacy: event.target.value
+                              }))
+                            }
+                          >
+                            {BOARD_PRIVACY_OPTIONS.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      )}
+
+                      {pinterestCreateForm.type === "section" ? (
+                        <div className="preview-info-card">
+                          <span>Privacy sezione</span>
+                          <strong>Ereditata dalla bacheca selezionata</strong>
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  <div className="decision-modal-actions">
+                    <button className="secondary-button" type="button" onClick={() => setPinterestCreateModalOpen(false)} disabled={pinterestActionLoading}>
+                      Annulla
+                    </button>
+                    <button className="primary-button" type="button" onClick={createPinterestContainer} disabled={pinterestActionLoading}>
+                      <Glyph name="plus" />
+                      <span>{pinterestActionLoading ? "Creo..." : "Crea"}</span>
+                    </button>
+                  </div>
+                </section>
+              </div>
+            ) : null}
 
             <article className="panel">
               <div className="panel-head">

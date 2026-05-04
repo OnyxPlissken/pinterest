@@ -19,6 +19,7 @@ export async function POST(request) {
       subPath: body?.subPath ?? "",
       ruleId: body?.ruleId ?? "",
       strategy: body?.strategy ?? "newOnly",
+      createMissingContainers: body?.createMissingContainers === true,
       origin: request.nextUrl.origin
     };
 
