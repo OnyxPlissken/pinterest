@@ -26,23 +26,23 @@ const BOARD_PRIVACY_OPTIONS = [
 const CSV_ASSIST_STRATEGIES = [
   {
     value: "newOnly",
-    label: "Solo nuovi",
-    description: "Salta asset gia tracciati o gia esportati."
+    label: "Crea solo i Pin nuovi",
+    description: "Usa questa scelta quando vuoi evitare duplicati. I Pin gia esportati o gia tracciati vengono saltati."
   },
   {
     value: "replaceChanged",
-    label: "Sostituisci modificati",
-    description: "Elimina i vecchi Pin identificati e genera CSV per nuovi/sostitutivi."
+    label: "Sostituisci quelli modificati",
+    description: "Se un'immagine o i dati sono cambiati, elimina il vecchio Pin identificato su Pinterest e mette il nuovo nel CSV."
   },
   {
     value: "regenerateSelection",
-    label: "Rigenera selezione",
-    description: "Elimina i Pin target identificati e genera CSV completo per la selezione."
+    label: "Rifai tutta la selezione",
+    description: "Cancella i Pin identificati per questa selezione e genera un CSV completo. Usala solo per rifare una bacheca o una sezione."
   },
   {
     value: "reportOnly",
-    label: "Solo report",
-    description: "Analizza differenze senza generare CSV e senza eliminare Pin."
+    label: "Controlla soltanto",
+    description: "Non elimina nulla e non genera un CSV finale. Serve solo per vedere cosa succederebbe."
   }
 ];
 const NATURAL_PIN_SORTER = new Intl.Collator("it-IT", {
@@ -457,6 +457,7 @@ export default function HomePage() {
   const [result, setResult] = useState(null);
   const [csvAssist, setCsvAssist] = useState(null);
   const [csvAssistStrategy, setCsvAssistStrategy] = useState("newOnly");
+  const [csvAssistModalOpen, setCsvAssistModalOpen] = useState(false);
   const [operationLogs, setOperationLogs] = useState([]);
   const [actionNotice, setActionNotice] = useState(null);
   const [explorerNotice, setExplorerNotice] = useState(null);
@@ -1079,6 +1080,7 @@ export default function HomePage() {
     setPreview(null);
     setResult(null);
     setCsvAssist(null);
+    setCsvAssistModalOpen(false);
     setActionNotice(null);
   }
 
@@ -1093,11 +1095,14 @@ export default function HomePage() {
   }
 
   function handleCsvAssistStrategyChange(event) {
-    const strategy = event.target.value;
-    setCsvAssistStrategy(strategy);
+    updateCsvAssistStrategy(event.target.value);
+  }
+
+  function updateCsvAssistStrategy(strategy) {
     setCsvAssist(null);
     setResult(null);
-    if (previewReady) {
+    setCsvAssistStrategy(strategy);
+    if (previewReady && csvAssistModalOpen) {
       loadCsvAssistPreflight(strategy, true);
     }
   }
@@ -1179,7 +1184,6 @@ export default function HomePage() {
       });
 
       setPreview(payload);
-      await loadCsvAssistPreflight(csvAssistStrategy, true);
       setActionNotice({
         type: "success",
         text: `Anteprima pronta per ${formatPaths(payload.sourcePaths)}`
@@ -1266,6 +1270,20 @@ export default function HomePage() {
     }
   }
 
+  async function openCsvAssistModal() {
+    if (!previewReady) {
+      setActionNotice({
+        type: "error",
+        text: "Carica prima l'anteprima con la selezione corrente prima di generare il CSV."
+      });
+      return;
+    }
+
+    setCsvAssistModalOpen(true);
+    setCsvAssist(null);
+    await loadCsvAssistPreflight(csvAssistStrategy, true);
+  }
+
   async function generateCsv() {
     if (!previewReady) {
       setActionNotice({
@@ -1309,6 +1327,7 @@ export default function HomePage() {
 
       setResult(payload);
       setCsvAssist(payload);
+      setCsvAssistModalOpen(false);
       setActionNotice({
         type: payload.summary?.failed ? "error" : "success",
         text: payload.csvContent
@@ -2056,92 +2075,6 @@ export default function HomePage() {
                 </div>
               ) : null}
 
-              <div className="csv-assist-panel">
-                <div className="editor-block-head">
-                  <div>
-                    <h4>CSV Sync Assist</h4>
-                    <small>Controlla duplicati e sostituzioni prima di generare il CSV.</small>
-                  </div>
-                  <span className="tag soft">
-                    {csvAssist ? `${csvAssist.summary?.needsCsv || 0} righe CSV` : "Da analizzare"}
-                  </span>
-                </div>
-
-                <div className="form-grid csv-assist-controls">
-                  <label className="field">
-                    <span>Strategia CSV</span>
-                    <select
-                      className="select-field"
-                      value={csvAssistStrategy}
-                      onChange={handleCsvAssistStrategyChange}
-                      disabled={csvAssistLoading || generateLoading}
-                    >
-                      {CSV_ASSIST_STRATEGIES.map((strategy) => (
-                        <option key={strategy.value} value={strategy.value}>
-                          {strategy.label}
-                        </option>
-                      ))}
-                    </select>
-                    <small className="field-note">
-                      {CSV_ASSIST_STRATEGIES.find((strategy) => strategy.value === csvAssistStrategy)?.description}
-                    </small>
-                  </label>
-
-                  <div className="csv-assist-actions">
-                    <button
-                      className="secondary-button"
-                      type="button"
-                      onClick={() => loadCsvAssistPreflight(csvAssistStrategy)}
-                      disabled={!selectedTargetPaths.length || csvAssistLoading}
-                    >
-                      <Glyph name="refresh" />
-                      <span>{csvAssistLoading ? "Analisi..." : "Analizza CSV"}</span>
-                    </button>
-                  </div>
-                </div>
-
-                {csvAssist ? (
-                  <>
-                    <div className="preview-summary-row compact">
-                      <div className="summary-item">
-                        <span>Nuovi</span>
-                        <strong>{csvAssist.summary?.create || 0}</strong>
-                      </div>
-                      <div className="summary-item">
-                        <span>Sostituzioni</span>
-                        <strong>{csvAssist.summary?.replace || 0}</strong>
-                      </div>
-                      <div className="summary-item">
-                        <span>Modificati non esportati</span>
-                        <strong>{csvAssist.summary?.changed || 0}</strong>
-                      </div>
-                      <div className="summary-item">
-                        <span>Invariati</span>
-                        <strong>{csvAssist.summary?.unchanged || 0}</strong>
-                      </div>
-                      <div className="summary-item">
-                        <span>Delete via API</span>
-                        <strong>{csvAssist.summary?.deletable || 0}</strong>
-                      </div>
-                    </div>
-
-                    {csvAssist.actions?.length ? (
-                      <div className="csv-assist-list">
-                        {csvAssist.actions.slice(0, 8).map((action, index) => (
-                          <div className="csv-assist-row" key={`${action.type}-${action.pinId}-${action.filename}-${index}`}>
-                            <span className={`status-pill ${action.type === "failed" ? "error" : "ok"}`}>
-                              {action.type}
-                            </span>
-                            <strong>{action.title || action.filename || action.pinId || "Elemento"}</strong>
-                            <small>{action.reason}</small>
-                          </div>
-                        ))}
-                      </div>
-                    ) : null}
-                  </>
-                ) : null}
-              </div>
-
               <div className="action-row">
                 <button
                   className="primary-button"
@@ -2155,11 +2088,11 @@ export default function HomePage() {
                 <button
                   className="primary-button"
                   type="button"
-                  onClick={generateCsv}
-                  disabled={!previewReady || generateLoading}
+                  onClick={openCsvAssistModal}
+                  disabled={!previewReady || generateLoading || csvAssistLoading}
                 >
                   <Glyph name="play" />
-                  <span>{generateLoading ? "Generazione..." : "Genera CSV"}</span>
+                  <span>{generateLoading || csvAssistLoading ? "Preparazione..." : "Genera CSV"}</span>
                 </button>
                 <button
                   className="primary-button"
@@ -2183,6 +2116,120 @@ export default function HomePage() {
 
               {actionNotice ? <div className={`notice ${actionNotice.type}`}>{actionNotice.text}</div> : null}
             </section>
+
+            {csvAssistModalOpen ? (
+              <div className="modal-backdrop" role="presentation" onClick={() => setCsvAssistModalOpen(false)}>
+                <section className="decision-modal" role="dialog" aria-modal="true" aria-label="Scegli cosa fare" onClick={(event) => event.stopPropagation()}>
+                  <div className="decision-modal-head">
+                    <div>
+                      <span className="meta-label">Generazione CSV</span>
+                      <h3>Scegli cosa fare</h3>
+                      <p>Prima di creare il file, scegli come trattare i Pin gia pubblicati o gia esportati. Se una scelta elimina Pin, te lo diciamo chiaramente prima di procedere.</p>
+                    </div>
+                    <button className="icon-button compact" type="button" onClick={() => setCsvAssistModalOpen(false)}>
+                      <Glyph name="back" />
+                    </button>
+                  </div>
+
+                  <div className="decision-modal-body">
+                    <div className="decision-options">
+                      {CSV_ASSIST_STRATEGIES.map((strategy) => (
+                        <button
+                          className={`decision-option ${csvAssistStrategy === strategy.value ? "active" : ""}`}
+                          key={strategy.value}
+                          type="button"
+                          onClick={() => updateCsvAssistStrategy(strategy.value)}
+                          disabled={csvAssistLoading || generateLoading}
+                        >
+                          <span className="decision-radio" aria-hidden="true" />
+                          <strong>{strategy.label}</strong>
+                          <small>{strategy.description}</small>
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="decision-summary">
+                      <div className="editor-block-head">
+                        <div>
+                          <h4>Prima di continuare</h4>
+                          <small>
+                            {csvAssistLoading
+                              ? "Sto controllando SharePoint, registro locale e Pinterest."
+                              : "Questi numeri sono calcolati sulla selezione corrente."}
+                          </small>
+                        </div>
+                        <button
+                          className="secondary-button"
+                          type="button"
+                          onClick={() => loadCsvAssistPreflight(csvAssistStrategy)}
+                          disabled={csvAssistLoading || generateLoading}
+                        >
+                          <Glyph name="refresh" />
+                          <span>{csvAssistLoading ? "Controllo..." : "Ricontrolla"}</span>
+                        </button>
+                      </div>
+
+                      <div className="preview-summary-row compact">
+                        <div className="summary-item">
+                          <span>Nel CSV</span>
+                          <strong>{csvAssist?.summary?.needsCsv || 0}</strong>
+                        </div>
+                        <div className="summary-item">
+                          <span>Nuovi</span>
+                          <strong>{csvAssist?.summary?.create || 0}</strong>
+                        </div>
+                        <div className="summary-item">
+                          <span>Da sostituire</span>
+                          <strong>{csvAssist?.summary?.replace || 0}</strong>
+                        </div>
+                        <div className="summary-item danger">
+                          <span>Da eliminare ora</span>
+                          <strong>{csvAssist?.summary?.deletable || 0}</strong>
+                        </div>
+                        <div className="summary-item">
+                          <span>Saltati</span>
+                          <strong>{csvAssist?.summary?.unchanged || 0}</strong>
+                        </div>
+                      </div>
+
+                      {csvAssist?.summary?.deletable ? (
+                        <div className="notice error">
+                          Questa scelta eliminera {csvAssist.summary.deletable} Pin gia identificati su Pinterest. I Pin cancellati non si recuperano.
+                        </div>
+                      ) : (
+                        <div className="notice success">
+                          Con questa scelta non risultano eliminazioni automatiche da fare adesso.
+                        </div>
+                      )}
+
+                      {csvAssist?.actions?.length ? (
+                        <div className="csv-assist-list modal-list">
+                          {csvAssist.actions.slice(0, 6).map((action, index) => (
+                            <div className="csv-assist-row" key={`${action.type}-${action.pinId}-${action.filename}-${index}`}>
+                              <span className={`status-pill ${action.type === "failed" ? "error" : "ok"}`}>
+                                {action.type}
+                              </span>
+                              <strong>{action.title || action.filename || action.pinId || "Elemento"}</strong>
+                              <small>{action.reason}</small>
+                            </div>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  <div className="decision-modal-actions">
+                    <button className="secondary-button" type="button" onClick={() => setCsvAssistModalOpen(false)} disabled={generateLoading}>
+                      Annulla
+                    </button>
+                    <button className="primary-button" type="button" onClick={generateCsv} disabled={generateLoading || csvAssistLoading || !csvAssist}>
+                      <Glyph name="check" />
+                      <span>{generateLoading ? "Genero..." : csvAssistStrategy === "reportOnly" ? "Mostra report" : "Conferma e genera CSV"}</span>
+                    </button>
+                  </div>
+                </section>
+              </div>
+            ) : null}
 
             <section className="preview-panel panel">
               <div className="panel-head">
