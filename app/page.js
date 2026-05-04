@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { buildRulePreview } from "../lib/pinterest-format";
 
 const BASE_VIEWS = [
@@ -414,6 +414,22 @@ function formatRole(role) {
   return role === "admin" ? "Amministratore" : "Editor";
 }
 
+function normalizeCachePath(value = "") {
+  return String(value || "").trim();
+}
+
+function isPromiseLike(value) {
+  return value && typeof value.then === "function";
+}
+
+function createCsvAssistCacheKey({ subPaths = [], ruleId = "", strategy = "" }) {
+  return JSON.stringify({
+    ruleId,
+    strategy,
+    subPaths: [...subPaths].map(String).sort()
+  });
+}
+
 function getInitials(value) {
   const parts = String(value || "")
     .trim()
@@ -473,6 +489,9 @@ export default function HomePage() {
   const [rulesNotice, setRulesNotice] = useState(null);
   const [settingsNotice, setSettingsNotice] = useState(null);
   const [pinterestNotice, setPinterestNotice] = useState(null);
+  const explorerCacheRef = useRef(new Map());
+  const explorerCacheVersionRef = useRef(0);
+  const csvAssistCacheRef = useRef(new Map());
   const [pinterestTree, setPinterestTree] = useState({ boards: [], sectionsByBoard: {} });
   const [pinterestPins, setPinterestPins] = useState([]);
   const [pinterestContext, setPinterestContext] = useState(null);
@@ -541,11 +560,86 @@ export default function HomePage() {
     setSettingsForm(buildSettingsForm(systemPayload.settings));
     setExplorerData(explorerPayload);
     setRootFolders(explorerPayload.folders ?? []);
+    explorerCacheRef.current.set("", explorerPayload);
 
     return {
       systemPayload,
       explorerPayload
     };
+  }
+
+  function getCachedExplorerPayload(subPath = "") {
+    const cached = explorerCacheRef.current.get(normalizeCachePath(subPath));
+    return cached && !isPromiseLike(cached) ? cached : null;
+  }
+
+  async function fetchExplorerPayload(subPath = "", { force = false } = {}) {
+    const cacheKey = normalizeCachePath(subPath);
+    const cached = explorerCacheRef.current.get(cacheKey);
+
+    if (!force && cached) {
+      return cached;
+    }
+
+    const params = new URLSearchParams();
+    if (cacheKey) {
+      params.set("subPath", cacheKey);
+    }
+    if (force) {
+      params.set("refresh", "1");
+    }
+
+    const cacheVersion = explorerCacheVersionRef.current;
+    const request = fetchJson(`/api/explorer${params.toString() ? `?${params}` : ""}`)
+      .then((payload) => {
+        if (explorerCacheVersionRef.current === cacheVersion) {
+          explorerCacheRef.current.set(cacheKey, payload);
+        }
+        return payload;
+      })
+      .catch((error) => {
+        if (explorerCacheVersionRef.current === cacheVersion) {
+          explorerCacheRef.current.delete(cacheKey);
+        }
+        throw error;
+      });
+
+    explorerCacheRef.current.set(cacheKey, request);
+    return request;
+  }
+
+  async function prefetchExplorerPayloads(subPaths = []) {
+    const missing = Array.from(new Set(subPaths.map(normalizeCachePath).filter(Boolean))).filter(
+      (subPath) => !explorerCacheRef.current.has(subPath)
+    );
+    const concurrency = 3;
+    let cursor = 0;
+
+    async function worker() {
+      while (cursor < missing.length) {
+        const current = missing[cursor];
+        cursor += 1;
+        try {
+          await fetchExplorerPayload(current);
+        } catch {}
+      }
+    }
+
+    await Promise.all(
+      Array.from({ length: Math.min(concurrency, missing.length) }, () => worker())
+    );
+  }
+
+  function getCsvAssistCacheKey(strategy = csvAssistStrategy) {
+    return createCsvAssistCacheKey({
+      subPaths: selectedTargetPaths,
+      ruleId: selectedRuleId,
+      strategy
+    });
+  }
+
+  function getCachedCsvAssist(strategy = csvAssistStrategy) {
+    return csvAssistCacheRef.current.get(getCsvAssistCacheKey(strategy)) || null;
   }
 
   useEffect(() => {
@@ -600,6 +694,7 @@ export default function HomePage() {
 
     async function loadLevel5Folders() {
       if (!season) {
+        setSectionsLoading(false);
         setLevel5Folders([]);
         setSelectedLevel5s([]);
         setLevel6Groups([]);
@@ -607,15 +702,11 @@ export default function HomePage() {
         return;
       }
 
-      setSectionsLoading(true);
-
-      try {
-        const payload = await fetchJson(`/api/explorer?subPath=${encodeURIComponent(season)}`);
-        if (cancelled) {
-          return;
-        }
-
-        setLevel5Folders(payload.folders ?? []);
+      const cached = getCachedExplorerPayload(season);
+      if (cached) {
+        setSectionsLoading(false);
+        const folders = cached.folders ?? [];
+        setLevel5Folders(folders);
         setSelectedLevel5s((current) => current.filter((path) => path.startsWith(`${season}/`)));
         setSelectedTargetPaths((current) =>
           current.filter((path) => path.startsWith(`${season}/`))
@@ -623,6 +714,27 @@ export default function HomePage() {
         setPreview(null);
         setResult(null);
         setActionNotice(null);
+        void prefetchExplorerPayloads(folders.map((folder) => folder.subPath));
+        return;
+      }
+
+      try {
+        setSectionsLoading(true);
+        const payload = await fetchExplorerPayload(season);
+        if (cancelled) {
+          return;
+        }
+
+        const folders = payload.folders ?? [];
+        setLevel5Folders(folders);
+        setSelectedLevel5s((current) => current.filter((path) => path.startsWith(`${season}/`)));
+        setSelectedTargetPaths((current) =>
+          current.filter((path) => path.startsWith(`${season}/`))
+        );
+        setPreview(null);
+        setResult(null);
+        setActionNotice(null);
+        void prefetchExplorerPayloads(folders.map((folder) => folder.subPath));
       } catch (error) {
         if (!cancelled) {
           setActionNotice({
@@ -652,18 +764,34 @@ export default function HomePage() {
 
     async function loadLevel6Folders() {
       if (!selectedLevel5s.length) {
+        setCollectionsLoading(false);
         setLevel6Groups([]);
         setSelectedTargetPaths([]);
         return;
       }
 
-      setCollectionsLoading(true);
+      const cachedPayloads = selectedLevel5s.map((subPath) => getCachedExplorerPayload(subPath));
+      const hasAllCached = cachedPayloads.every(Boolean);
+      if (hasAllCached) {
+        setCollectionsLoading(false);
+        const groups = cachedPayloads.map((payload) => ({
+          parentSubPath: payload.currentSubPath,
+          parentName: payload.breadcrumbs?.at(-1)?.label ?? payload.currentSubPath,
+          folders: payload.folders ?? []
+        }));
+
+        const allTargets = groups.flatMap((group) => group.folders.map((folder) => folder.subPath));
+        setLevel6Groups(groups);
+        setSelectedTargetPaths((current) => current.filter((path) => allTargets.includes(path)));
+        setPreview(null);
+        setResult(null);
+        return;
+      }
 
       try {
+        setCollectionsLoading(true);
         const payloads = await Promise.all(
-          selectedLevel5s.map((subPath) =>
-            fetchJson(`/api/explorer?subPath=${encodeURIComponent(subPath)}`)
-          )
+          selectedLevel5s.map((subPath) => fetchExplorerPayload(subPath))
         );
 
         if (cancelled) {
@@ -1127,14 +1255,19 @@ export default function HomePage() {
     }
   }
 
-  async function openExplorer(subPath = "") {
+  async function openExplorer(subPath = "", { force = false } = {}) {
+    const cached = force ? null : getCachedExplorerPayload(subPath);
+    if (cached) {
+      setExplorerData(cached);
+      setExplorerNotice(null);
+      return;
+    }
+
     setExplorerLoading(true);
     setExplorerNotice(null);
 
     try {
-      const payload = await fetchJson(
-        `/api/explorer?subPath=${encodeURIComponent(String(subPath || ""))}`
-      );
+      const payload = await fetchExplorerPayload(subPath, { force });
       setExplorerData(payload);
     } catch (error) {
       setExplorerNotice({
@@ -1155,6 +1288,7 @@ export default function HomePage() {
     setCsvAssist(null);
     setCsvAssistModalOpen(false);
     setActionNotice(null);
+    csvAssistCacheRef.current.clear();
   }
 
   function handleSeasonChange(event) {
@@ -1172,9 +1306,10 @@ export default function HomePage() {
   }
 
   function updateCsvAssistStrategy(strategy) {
-    setCsvAssist(null);
     setResult(null);
     setCsvAssistStrategy(strategy);
+    const cached = getCachedCsvAssist(strategy);
+    setCsvAssist(cached);
     if (previewReady && csvAssistModalOpen) {
       loadCsvAssistPreflight(strategy, true);
     }
@@ -1246,6 +1381,7 @@ export default function HomePage() {
     setActionNotice(null);
     setResult(null);
     setCsvAssist(null);
+    csvAssistCacheRef.current.clear();
 
     try {
       const payload = await fetchJson("/api/preview", {
@@ -1253,7 +1389,11 @@ export default function HomePage() {
         headers: {
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({ subPaths: selectedTargetPaths, ruleId: selectedRuleId })
+        body: JSON.stringify({
+          subPaths: selectedTargetPaths,
+          ruleId: selectedRuleId,
+          forceRefresh: true
+        })
       });
 
       setPreview(payload);
@@ -1289,7 +1429,11 @@ export default function HomePage() {
     }
   }
 
-  async function loadCsvAssistPreflight(strategy = csvAssistStrategy, silent = false) {
+  async function loadCsvAssistPreflight(
+    strategy = csvAssistStrategy,
+    silent = false,
+    { force = false } = {}
+  ) {
     if (!selectedTargetPaths.length) {
       if (!silent) {
         setActionNotice({
@@ -1298,6 +1442,23 @@ export default function HomePage() {
         });
       }
       return null;
+    }
+
+    const cacheKey = getCsvAssistCacheKey(strategy);
+    const cached = csvAssistCacheRef.current.get(cacheKey);
+    if (!force && cached) {
+      setCsvAssist(cached);
+      if (!silent) {
+        const summary = cached.summary || {};
+        setActionNotice({
+          type: "success",
+          text: `Analisi CSV pronta: ${summary.needsCsv || 0} righe CSV, ${summary.deletable || 0} Pin eliminabili via API.`
+        });
+      }
+      return cached;
+    }
+    if (force) {
+      csvAssistCacheRef.current.delete(cacheKey);
     }
 
     setCsvAssistLoading(true);
@@ -1315,10 +1476,12 @@ export default function HomePage() {
           action: "preflight",
           subPaths: selectedTargetPaths,
           ruleId: selectedRuleId,
-          strategy
+          strategy,
+          forceRefresh: force
         })
       });
 
+      csvAssistCacheRef.current.set(cacheKey, payload);
       setCsvAssist(payload);
       if (!silent) {
         const summary = payload.summary || {};
@@ -1353,7 +1516,7 @@ export default function HomePage() {
     }
 
     setCsvAssistModalOpen(true);
-    setCsvAssist(null);
+    setCsvAssist(getCachedCsvAssist(csvAssistStrategy));
     await loadCsvAssistPreflight(csvAssistStrategy, true);
   }
 
@@ -1733,6 +1896,9 @@ export default function HomePage() {
       setSeason("");
       setSelectedLevel5s([]);
       setSelectedTargetPaths([]);
+      explorerCacheVersionRef.current += 1;
+      explorerCacheRef.current.clear();
+      csvAssistCacheRef.current.clear();
       resetOutputs();
       await refreshSystemState();
       setSettingsNotice({
@@ -2235,7 +2401,7 @@ export default function HomePage() {
                         <button
                           className="secondary-button"
                           type="button"
-                          onClick={() => loadCsvAssistPreflight(csvAssistStrategy)}
+                          onClick={() => loadCsvAssistPreflight(csvAssistStrategy, false, { force: true })}
                           disabled={csvAssistLoading || generateLoading}
                         >
                           <Glyph name="refresh" />
@@ -2899,7 +3065,7 @@ export default function HomePage() {
                 <p>Esplora le cartelle di lavoro, cerca asset e aggiungi alla selezione solo i percorsi utili al CSV.</p>
               </div>
               <div className="inline-actions">
-                <button className="panel-button subtle" type="button" onClick={() => openExplorer("")}>
+                <button className="panel-button subtle" type="button" onClick={() => openExplorer("", { force: true })}>
                   <Glyph name="refresh" />
                   <span>{explorerLoading ? "Aggiornamento..." : "Aggiorna"}</span>
                 </button>

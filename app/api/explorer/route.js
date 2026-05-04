@@ -8,16 +8,54 @@ import { listFolderEntries } from "../../../lib/sharepoint-client";
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
+const EXPLORER_CACHE_TTL_MS = 3 * 60 * 1000;
+const explorerCache = globalThis.__isaiaExplorerCache ?? new Map();
+globalThis.__isaiaExplorerCache = explorerCache;
+
+function buildExplorerCacheKey(config, subPath) {
+  return [
+    config.hostname,
+    config.sitePath,
+    config.driveName,
+    config.baseFolder,
+    subPath
+  ].join("||");
+}
+
+function pruneExplorerCache() {
+  const now = Date.now();
+  for (const [key, entry] of explorerCache.entries()) {
+    if (!entry || entry.expiresAt <= now) {
+      explorerCache.delete(key);
+    }
+  }
+}
+
 export async function GET(request) {
   try {
-    const runtime = await getRuntimeConfig();
-    const token = await getSharePointAccessToken();
+    const runtimeConfig = await getRuntimeConfig();
     const subPath = request.nextUrl.searchParams.get("subPath") ?? "";
+    const forceRefresh = request.nextUrl.searchParams.get("refresh") === "1";
     const folderPath = subPath
-      ? `${runtime.config.sharePoint.baseFolder}/${subPath}`
-      : runtime.config.sharePoint.baseFolder;
+      ? `${runtimeConfig.config.sharePoint.baseFolder}/${subPath}`
+      : runtimeConfig.config.sharePoint.baseFolder;
+    const cacheKey = buildExplorerCacheKey(runtimeConfig.config.sharePoint, subPath);
+    const cached = explorerCache.get(cacheKey);
 
-    const explorer = await listFolderEntries(token, runtime.config.sharePoint, folderPath);
+    let explorer = null;
+    if (!forceRefresh && cached?.expiresAt > Date.now()) {
+      explorer = cached.value;
+    } else {
+      const token = await getSharePointAccessToken();
+      explorer = await listFolderEntries(token, runtimeConfig.config.sharePoint, folderPath);
+      explorerCache.set(cacheKey, {
+        value: explorer,
+        expiresAt: Date.now() + EXPLORER_CACHE_TTL_MS
+      });
+      if (explorerCache.size > 80) {
+        pruneExplorerCache();
+      }
+    }
 
     return Response.json({
       ...explorer,
@@ -29,7 +67,7 @@ export async function GET(request) {
           buildAssetFingerprint(file)
         )
       })),
-      baseFolder: runtime.config.sharePoint.baseFolder
+      baseFolder: runtimeConfig.config.sharePoint.baseFolder
     });
   } catch (error) {
     const normalized = normalizeOperationalError(

@@ -20,6 +20,7 @@ export async function POST(request) {
       ruleId: body?.ruleId ?? "",
       strategy: body?.strategy ?? "newOnly",
       createMissingContainers: body?.createMissingContainers === true,
+      forceRefresh: body?.forceRefresh === true,
       origin: request.nextUrl.origin
     };
 
