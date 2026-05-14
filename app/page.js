@@ -27,17 +27,17 @@ const CSV_ASSIST_STRATEGIES = [
   {
     value: "newOnly",
     label: "Crea solo i Pin nuovi",
-    description: "Usa questa scelta quando vuoi evitare duplicati. I Pin gia esportati o gia tracciati vengono saltati."
+    description: "Genera solo asset mai esportati e mai trovati su Pinterest. I Pin gia tracciati vengono saltati, anche se sono cambiati."
   },
   {
     value: "replaceChanged",
     label: "Sostituisci quelli modificati",
-    description: "Se un'immagine o i dati sono cambiati, elimina il vecchio Pin identificato su Pinterest e mette il nuovo nel CSV."
+    description: "Se un'immagine o i dati sono cambiati, elimina il vecchio Pin quando e identificato. Se non ha un pinId, genera solo la nuova riga CSV."
   },
   {
     value: "regenerateSelection",
     label: "Rifai tutta la selezione",
-    description: "Cancella i Pin identificati per questa selezione e genera un CSV completo. Usala solo per rifare una bacheca o una sezione."
+    description: "Genera un CSV completo per tutti i look validi. Cancella solo i Pin identificati su Pinterest."
   },
   {
     value: "reportOnly",
@@ -2415,7 +2415,11 @@ export default function HomePage() {
                           <strong>{csvAssist?.summary?.needsCsv || 0}</strong>
                         </div>
                         <div className="summary-item">
-                          <span>Nuovi / senza delete</span>
+                          <span>
+                            {csvAssistStrategy === "newOnly"
+                              ? "Nuovi mai tracciati"
+                              : "Da generare senza delete"}
+                          </span>
                           <strong>{csvAssist?.summary?.create || 0}</strong>
                         </div>
                         <div className="summary-item">
@@ -2453,6 +2457,12 @@ export default function HomePage() {
                           Con questa scelta non risultano eliminazioni automatiche da fare adesso.
                         </div>
                       )}
+
+                      {csvAssist?.summary?.changed ? (
+                        <div className="notice info">
+                          Questa scelta lascia fuori dal CSV {csvAssist.summary.changed} look gia tracciati o gia esportati. Per includerli usa "Sostituisci quelli modificati" oppure "Rifai tutta la selezione".
+                        </div>
+                      ) : null}
 
                       {(csvAssist?.containers?.missingBoards?.length || csvAssist?.containers?.missingSections?.length) ? (
                         <label className="direct-import-toggle">
