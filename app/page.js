@@ -719,59 +719,12 @@ export default function HomePage() {
       return [];
     }
 
-    const visited = new Set();
-    const selectable = new Map();
-    const queue = rootFolders
+    return rootFolders
       .filter((folder) => !isFinalJpegFolderName(folder.name))
-      .map((folder) => folder.subPath);
-
-    async function processFolder(subPath) {
-      const normalizedSubPath = normalizeCachePath(subPath);
-      if (!normalizedSubPath || visited.has(normalizedSubPath)) {
-        return;
-      }
-
-      visited.add(normalizedSubPath);
-
-      const payload = await fetchExplorerPayload(normalizedSubPath);
-      const folders = payload.folders ?? [];
-      const currentSubPath = payload.currentSubPath || normalizedSubPath;
-      const hasFinalJpegChild = folders.some((folder) => isFinalJpegFolderName(folder.name));
-      const hasDirectImages = (payload.files ?? []).some((file) => file.isImage);
-
-      if (hasFinalJpegChild || hasDirectImages) {
-        selectable.set(currentSubPath, {
-          name: splitSubPath(currentSubPath).at(-1) || currentSubPath,
-          type: "folder",
-          subPath: currentSubPath,
-          displayPath: payload.displayPath,
-          label: buildTargetFolderLabel(currentSubPath, targetSubPath)
-        });
-
-        return;
-      }
-
-      queue.push(
-        ...folders
-          .filter((folder) => !isFinalJpegFolderName(folder.name))
-          .map((folder) => folder.subPath)
+      .map((folder) => normalizeSelectableTargetFolder(folder, targetSubPath))
+      .sort((left, right) =>
+        left.label.localeCompare(right.label, "it", { numeric: true, sensitivity: "base" })
       );
-    }
-
-    async function worker() {
-      while (queue.length) {
-        const subPath = queue.shift();
-        await processFolder(subPath);
-      }
-    }
-
-    await Promise.all(Array.from({ length: Math.min(4, queue.length) }, () => worker()));
-
-    const folders = Array.from(selectable.values()).sort((left, right) =>
-      left.label.localeCompare(right.label, "it", { numeric: true, sensitivity: "base" })
-    );
-
-    return folders;
   }
 
   function getCsvAssistCacheKey(strategy = csvAssistStrategy) {
@@ -980,16 +933,30 @@ export default function HomePage() {
 
       try {
         setNestedTargetsLoading(true);
+        setNestedTargetGroups([]);
         const groups = await Promise.all(
           selectedTargetPaths.map(async (subPath) => {
             const payload = await fetchExplorerPayload(subPath);
             const folders = await collectNestedTargetFolders(subPath);
-
-            return {
+            const group = {
               parentSubPath: payload.currentSubPath || subPath,
               parentName: payload.breadcrumbs?.at(-1)?.label ?? payload.currentSubPath ?? subPath,
               folders
             };
+
+            if (!cancelled && folders.length) {
+              setNestedTargetGroups((current) =>
+                [...current.filter((entry) => entry.parentSubPath !== group.parentSubPath), group]
+                  .sort((left, right) =>
+                    left.parentName.localeCompare(right.parentName, "it", {
+                      numeric: true,
+                      sensitivity: "base"
+                    })
+                  )
+              );
+            }
+
+            return group;
           })
         );
 
@@ -998,13 +965,12 @@ export default function HomePage() {
         }
 
         const visibleGroups = groups.filter((group) => group.folders.length);
-        const allNestedTargets = visibleGroups.flatMap((group) =>
-          group.folders.map((folder) => folder.subPath)
-        );
 
         setNestedTargetGroups(visibleGroups);
         setSelectedNestedTargetPaths((current) =>
-          current.filter((path) => allNestedTargets.includes(path))
+          current.filter((path) =>
+            selectedTargetPaths.some((parent) => isDescendantSubPath(parent, path))
+          )
         );
       } catch (error) {
         if (!cancelled) {
@@ -1841,14 +1807,6 @@ export default function HomePage() {
       setActionNotice({
         type: "error",
         text: "Seleziona almeno una cartella finale prima di caricare l'anteprima."
-      });
-      return;
-    }
-
-    if (nestedTargetsLoading) {
-      setActionNotice({
-        type: "error",
-        text: "Aspetta il caricamento delle sottocartelle contenuto prima di caricare l'anteprima."
       });
       return;
     }
@@ -2777,7 +2735,7 @@ export default function HomePage() {
                     <div className="selector-head">
                       <div>
                         <h4>Sottocartelle contenuto</h4>
-                        <p>Se la cartella finale ha livelli prima di FINAL JPEG, scegli qui il ramo specifico. Se lasci vuoto, vengono usate le FINAL JPEG piu vicine alla cartella scelta.</p>
+                        <p>Filtro rapido sul livello successivo. Se lasci vuoto, vengono usate le FINAL JPEG piu vicine alla cartella scelta.</p>
                       </div>
                       <div className="inline-actions">
                         <button
@@ -2882,7 +2840,7 @@ export default function HomePage() {
                   className="primary-button"
                   type="button"
                   onClick={loadPreview}
-                  disabled={!selectedGenerationPaths.length || previewLoading || nestedTargetsLoading}
+                  disabled={!selectedGenerationPaths.length || previewLoading}
                 >
                   <Glyph name="image" />
                   <span>{previewLoading ? "Anteprima..." : "Carica anteprima"}</span>
