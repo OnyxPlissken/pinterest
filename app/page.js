@@ -332,6 +332,16 @@ function normalizeSelectableTargetFolder(folder, level5SubPath) {
   };
 }
 
+function isDescendantSubPath(parent, child) {
+  return Boolean(parent && child && child.startsWith(`${parent}/`));
+}
+
+function uniqueSortedPaths(paths = []) {
+  return Array.from(new Set(paths)).sort((left, right) =>
+    left.localeCompare(right, "it", { numeric: true, sensitivity: "base" })
+  );
+}
+
 function getPrivacyLabel(value) {
   const normalized = String(value || "").toUpperCase();
   if (normalized === "PUBLIC") {
@@ -511,6 +521,7 @@ export default function HomePage() {
   const [bootLoading, setBootLoading] = useState(true);
   const [sectionsLoading, setSectionsLoading] = useState(false);
   const [collectionsLoading, setCollectionsLoading] = useState(false);
+  const [nestedTargetsLoading, setNestedTargetsLoading] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [generateLoading, setGenerateLoading] = useState(false);
   const [csvAssistLoading, setCsvAssistLoading] = useState(false);
@@ -528,6 +539,8 @@ export default function HomePage() {
   const [selectedLevel5s, setSelectedLevel5s] = useState([]);
   const [level6Groups, setLevel6Groups] = useState([]);
   const [selectedTargetPaths, setSelectedTargetPaths] = useState([]);
+  const [nestedTargetGroups, setNestedTargetGroups] = useState([]);
+  const [selectedNestedTargetPaths, setSelectedNestedTargetPaths] = useState([]);
   const [explorerData, setExplorerData] = useState(null);
   const [explorerQuery, setExplorerQuery] = useState("");
   const [preview, setPreview] = useState(null);
@@ -695,11 +708,22 @@ export default function HomePage() {
     );
   }
 
-  async function collectSelectableTargetFolders(level5SubPath) {
-    const rootPayload = await fetchExplorerPayload(level5SubPath);
+  async function collectNestedTargetFolders(targetSubPath) {
+    const rootPayload = await fetchExplorerPayload(targetSubPath);
+    const rootFolders = rootPayload.folders ?? [];
+
+    if (
+      rootFolders.some((folder) => isFinalJpegFolderName(folder.name)) ||
+      (rootPayload.files ?? []).some((file) => file.isImage)
+    ) {
+      return [];
+    }
+
     const visited = new Set();
     const selectable = new Map();
-    const queue = (rootPayload.folders ?? []).map((folder) => folder.subPath);
+    const queue = rootFolders
+      .filter((folder) => !isFinalJpegFolderName(folder.name))
+      .map((folder) => folder.subPath);
 
     async function processFolder(subPath) {
       const normalizedSubPath = normalizeCachePath(subPath);
@@ -712,17 +736,16 @@ export default function HomePage() {
       const payload = await fetchExplorerPayload(normalizedSubPath);
       const folders = payload.folders ?? [];
       const currentSubPath = payload.currentSubPath || normalizedSubPath;
-      const currentDepth = splitSubPath(currentSubPath).length;
       const hasFinalJpegChild = folders.some((folder) => isFinalJpegFolderName(folder.name));
       const hasDirectImages = (payload.files ?? []).some((file) => file.isImage);
 
-      if (currentDepth >= 3 && (hasFinalJpegChild || hasDirectImages)) {
+      if (hasFinalJpegChild || hasDirectImages) {
         selectable.set(currentSubPath, {
           name: splitSubPath(currentSubPath).at(-1) || currentSubPath,
           type: "folder",
           subPath: currentSubPath,
           displayPath: payload.displayPath,
-          label: buildTargetFolderLabel(currentSubPath, level5SubPath)
+          label: buildTargetFolderLabel(currentSubPath, targetSubPath)
         });
 
         if (hasFinalJpegChild) {
@@ -750,16 +773,12 @@ export default function HomePage() {
       left.label.localeCompare(right.label, "it", { numeric: true, sensitivity: "base" })
     );
 
-    return folders.length
-      ? folders
-      : (rootPayload.folders ?? []).map((folder) =>
-          normalizeSelectableTargetFolder(folder, level5SubPath)
-        );
+    return folders;
   }
 
   function getCsvAssistCacheKey(strategy = csvAssistStrategy) {
     return createCsvAssistCacheKey({
-      subPaths: selectedTargetPaths,
+      subPaths: selectedGenerationPaths,
       ruleId: selectedRuleId,
       strategy
     });
@@ -826,6 +845,8 @@ export default function HomePage() {
         setSelectedLevel5s([]);
         setLevel6Groups([]);
         setSelectedTargetPaths([]);
+        setNestedTargetGroups([]);
+        setSelectedNestedTargetPaths([]);
         return;
       }
 
@@ -894,6 +915,8 @@ export default function HomePage() {
         setCollectionsLoading(false);
         setLevel6Groups([]);
         setSelectedTargetPaths([]);
+        setNestedTargetGroups([]);
+        setSelectedNestedTargetPaths([]);
         return;
       }
 
@@ -902,12 +925,13 @@ export default function HomePage() {
         const groups = await Promise.all(
           selectedLevel5s.map(async (subPath) => {
             const payload = await fetchExplorerPayload(subPath);
-            const folders = await collectSelectableTargetFolders(subPath);
 
             return {
               parentSubPath: payload.currentSubPath,
               parentName: payload.breadcrumbs?.at(-1)?.label ?? payload.currentSubPath,
-              folders
+              folders: (payload.folders ?? []).map((folder) =>
+                normalizeSelectableTargetFolder(folder, subPath)
+              )
             };
           })
         );
@@ -944,6 +968,69 @@ export default function HomePage() {
       cancelled = true;
     };
   }, [selectedLevel5s]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadNestedTargetFolders() {
+      if (!selectedTargetPaths.length) {
+        setNestedTargetsLoading(false);
+        setNestedTargetGroups([]);
+        setSelectedNestedTargetPaths([]);
+        return;
+      }
+
+      try {
+        setNestedTargetsLoading(true);
+        const groups = await Promise.all(
+          selectedTargetPaths.map(async (subPath) => {
+            const payload = await fetchExplorerPayload(subPath);
+            const folders = await collectNestedTargetFolders(subPath);
+
+            return {
+              parentSubPath: payload.currentSubPath || subPath,
+              parentName: payload.breadcrumbs?.at(-1)?.label ?? payload.currentSubPath ?? subPath,
+              folders
+            };
+          })
+        );
+
+        if (cancelled) {
+          return;
+        }
+
+        const visibleGroups = groups.filter((group) => group.folders.length);
+        const allNestedTargets = visibleGroups.flatMap((group) =>
+          group.folders.map((folder) => folder.subPath)
+        );
+
+        setNestedTargetGroups(visibleGroups);
+        setSelectedNestedTargetPaths((current) =>
+          current.filter((path) => allNestedTargets.includes(path))
+        );
+      } catch (error) {
+        if (!cancelled) {
+          setActionNotice({
+            type: "error",
+            text:
+              error instanceof Error
+                ? error.message
+                : "Errore durante il caricamento delle sottocartelle contenuto."
+          });
+        }
+      } finally {
+        if (!cancelled) {
+          setNestedTargetsLoading(false);
+        }
+      }
+    }
+
+    loadNestedTargetFolders();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedTargetPaths]);
 
   useEffect(() => {
     const nextUser = users.find((entry) => entry.id === selectedUserId) || null;
@@ -1686,12 +1773,26 @@ export default function HomePage() {
       setSelectedTargetPaths((current) =>
         current.filter((path) => !path.startsWith(`${subPath}/`))
       );
+      setSelectedNestedTargetPaths((current) =>
+        current.filter((path) => !path.startsWith(`${subPath}/`))
+      );
     }
     resetOutputs();
   }
 
   function toggleLevel6(subPath) {
+    const isRemoving = selectedTargetPaths.includes(subPath);
     setSelectedTargetPaths((current) => toggleArrayValue(current, subPath));
+    if (isRemoving) {
+      setSelectedNestedTargetPaths((current) =>
+        current.filter((path) => !isDescendantSubPath(subPath, path))
+      );
+    }
+    resetOutputs();
+  }
+
+  function toggleNestedTarget(subPath) {
+    setSelectedNestedTargetPaths((current) => toggleArrayValue(current, subPath));
     resetOutputs();
   }
 
@@ -1707,6 +1808,8 @@ export default function HomePage() {
 
     const nextSeason = segments[0];
     const level5Path = segments.slice(0, 2).join("/");
+    const level6Path = segments.slice(0, 3).join("/");
+    const nestedPath = segments.length > 3 ? subPath : "";
 
     if (season && season !== nextSeason) {
       setActionNotice({
@@ -1721,7 +1824,10 @@ export default function HomePage() {
       current.includes(level5Path) ? current : [...current, level5Path]
     );
     setSelectedTargetPaths((current) =>
-      current.includes(subPath) ? current : [...current, subPath]
+      current.includes(level6Path) ? current : [...current, level6Path]
+    );
+    setSelectedNestedTargetPaths((current) =>
+      nestedPath && !current.includes(nestedPath) ? [...current, nestedPath] : current
     );
     setPreview(null);
     setResult(null);
@@ -1733,10 +1839,18 @@ export default function HomePage() {
   }
 
   async function loadPreview() {
-    if (!selectedTargetPaths.length) {
+    if (!selectedGenerationPaths.length) {
       setActionNotice({
         type: "error",
         text: "Seleziona almeno una cartella finale prima di caricare l'anteprima."
+      });
+      return;
+    }
+
+    if (nestedTargetsLoading) {
+      setActionNotice({
+        type: "error",
+        text: "Aspetta il caricamento delle sottocartelle contenuto prima di caricare l'anteprima."
       });
       return;
     }
@@ -1754,7 +1868,7 @@ export default function HomePage() {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          subPaths: selectedTargetPaths,
+          subPaths: selectedGenerationPaths,
           ruleId: selectedRuleId,
           forceRefresh: true
         })
@@ -1785,7 +1899,7 @@ export default function HomePage() {
       appendLog({
         action: "Anteprima",
         status: "error",
-        paths: [...selectedTargetPaths],
+        paths: [...selectedGenerationPaths],
         message
       });
     } finally {
@@ -1798,7 +1912,7 @@ export default function HomePage() {
     silent = false,
     { force = false } = {}
   ) {
-    if (!selectedTargetPaths.length) {
+    if (!selectedGenerationPaths.length) {
       if (!silent) {
         setActionNotice({
           type: "error",
@@ -1838,7 +1952,7 @@ export default function HomePage() {
         },
         body: JSON.stringify({
           action: "preflight",
-          subPaths: selectedTargetPaths,
+          subPaths: selectedGenerationPaths,
           ruleId: selectedRuleId,
           strategy,
           forceRefresh: force
@@ -1919,7 +2033,7 @@ export default function HomePage() {
         },
         body: JSON.stringify({
           action: "generate",
-          subPaths: selectedTargetPaths,
+          subPaths: selectedGenerationPaths,
           ruleId: selectedRuleId,
           strategy: csvAssistStrategy,
           createMissingContainers: csvAssistCreateContainers
@@ -1955,7 +2069,7 @@ export default function HomePage() {
       appendLog({
         action: "Generazione CSV",
         status: "error",
-        paths: [...selectedTargetPaths],
+        paths: [...selectedGenerationPaths],
         message
       });
     } finally {
@@ -1981,7 +2095,7 @@ export default function HomePage() {
         headers: {
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({ subPaths: selectedTargetPaths, ruleId: selectedRuleId })
+        body: JSON.stringify({ subPaths: selectedGenerationPaths, ruleId: selectedRuleId })
       });
       const summary = payload.summary || {};
       const message = [
@@ -2018,7 +2132,7 @@ export default function HomePage() {
       appendLog({
         action: "Sync Pinterest",
         status: "error",
-        paths: [...selectedTargetPaths],
+        paths: [...selectedGenerationPaths],
         message
       });
     } finally {
@@ -2260,6 +2374,8 @@ export default function HomePage() {
       setSeason("");
       setSelectedLevel5s([]);
       setSelectedTargetPaths([]);
+      setNestedTargetGroups([]);
+      setSelectedNestedTargetPaths([]);
       explorerCacheVersionRef.current += 1;
       explorerCacheRef.current.clear();
       csvAssistCacheRef.current.clear();
@@ -2284,6 +2400,20 @@ export default function HomePage() {
     () => level6Groups.flatMap((group) => group.folders.map((folder) => folder.subPath)),
     [level6Groups]
   );
+  const allNestedTargetPaths = useMemo(
+    () => nestedTargetGroups.flatMap((group) => group.folders.map((folder) => folder.subPath)),
+    [nestedTargetGroups]
+  );
+  const selectedGenerationPaths = useMemo(() => {
+    const nestedPaths = selectedNestedTargetPaths.filter((path) =>
+      selectedTargetPaths.some((parent) => isDescendantSubPath(parent, path))
+    );
+    const parentPaths = selectedTargetPaths.filter(
+      (path) => !nestedPaths.some((nestedPath) => isDescendantSubPath(path, nestedPath))
+    );
+
+    return uniqueSortedPaths([...parentPaths, ...nestedPaths]);
+  }, [selectedNestedTargetPaths, selectedTargetPaths]);
   const currentUser = systemInfo?.auth?.currentUser ?? null;
   const visibleViews = useMemo(
     () =>
@@ -2381,8 +2511,8 @@ export default function HomePage() {
   const latestSuccessLog = operationLogs.find((entry) => entry.status === "ok") ?? null;
   const previewReady =
     preview &&
-    preview.selectedSubPaths?.length === selectedTargetPaths.length &&
-    selectedTargetPaths.every((path) => preview.selectedSubPaths.includes(path));
+    preview.selectedSubPaths?.length === selectedGenerationPaths.length &&
+    selectedGenerationPaths.every((path) => preview.selectedSubPaths.includes(path));
 
   return (
     <main className="workspace-shell">
@@ -2468,7 +2598,7 @@ export default function HomePage() {
               <div className="hero-inline">
                 <div className="hero-path">
                   <span className="meta-label">Percorsi</span>
-                  <strong>{formatPaths(selectedTargetPaths)}</strong>
+                  <strong>{formatPaths(selectedGenerationPaths)}</strong>
                 </div>
                 <div className="hero-path">
                   <span className="meta-label">Regola</span>
@@ -2552,6 +2682,7 @@ export default function HomePage() {
                         onClick={() => {
                           setSelectedLevel5s([]);
                           setSelectedTargetPaths([]);
+                          setSelectedNestedTargetPaths([]);
                           resetOutputs();
                         }}
                       >
@@ -2586,7 +2717,7 @@ export default function HomePage() {
                   <div className="selector-head">
                     <div>
                       <h4>Cartelle finali</h4>
-                      <p>Scegli le cartelle da cui leggere i contenuti finali. Se FINAL JPEG e piu in basso, viene mostrata la cartella sopra FINAL JPEG.</p>
+                      <p>Scegli le cartelle principali della linea. Eventuali livelli interni appaiono nel pannello successivo.</p>
                     </div>
                     <div className="inline-actions">
                       <button
@@ -2595,6 +2726,7 @@ export default function HomePage() {
                         disabled={!allTargetPaths.length || collectionsLoading}
                         onClick={() => {
                           setSelectedTargetPaths(allTargetPaths);
+                          setSelectedNestedTargetPaths([]);
                           resetOutputs();
                         }}
                       >
@@ -2606,6 +2738,7 @@ export default function HomePage() {
                         disabled={!selectedTargetPaths.length}
                         onClick={() => {
                           setSelectedTargetPaths([]);
+                          setSelectedNestedTargetPaths([]);
                           resetOutputs();
                         }}
                       >
@@ -2640,6 +2773,67 @@ export default function HomePage() {
                     ) : null}
                   </div>
                 </article>
+
+                <article className="selector-panel">
+                  <div className="selector-head">
+                    <div>
+                      <h4>Sottocartelle contenuto</h4>
+                      <p>Se la cartella finale ha livelli prima di FINAL JPEG, scegli qui il ramo specifico. Se lasci vuoto, viene usata la cartella finale intera.</p>
+                    </div>
+                    <div className="inline-actions">
+                      <button
+                        className="panel-button subtle"
+                        type="button"
+                        disabled={!allNestedTargetPaths.length || nestedTargetsLoading}
+                        onClick={() => {
+                          setSelectedNestedTargetPaths(allNestedTargetPaths);
+                          resetOutputs();
+                        }}
+                      >
+                        Tutte
+                      </button>
+                      <button
+                        className="panel-button subtle"
+                        type="button"
+                        disabled={!selectedNestedTargetPaths.length}
+                        onClick={() => {
+                          setSelectedNestedTargetPaths([]);
+                          resetOutputs();
+                        }}
+                      >
+                        Pulisci
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="checklist-panel grouped">
+                    {nestedTargetGroups.map((group) => (
+                      <div className="check-group" key={group.parentSubPath}>
+                        <div className="check-group-title">{group.parentName}</div>
+                        {group.folders.map((folder) => (
+                          <label className="check-row" key={folder.subPath}>
+                            <input
+                              type="checkbox"
+                              checked={selectedNestedTargetPaths.includes(folder.subPath)}
+                              onChange={() => toggleNestedTarget(folder.subPath)}
+                            />
+                            <span>{folder.label || folder.name}</span>
+                          </label>
+                        ))}
+                      </div>
+                    ))}
+
+                    {!nestedTargetGroups.length ? (
+                      <div className="empty-block">
+                        {nestedTargetsLoading
+                          ? "Sto leggendo le sottocartelle selezionate..."
+                          : selectedTargetPaths.length
+                            ? "Le cartelle selezionate arrivano gia ai contenuti finali."
+                            : "Seleziona una cartella finale per verificare eventuali sottocartelle."}
+                      </div>
+                    ) : null}
+                  </div>
+                </article>
               </div>
 
               <div className="selection-summary">
@@ -2650,6 +2844,10 @@ export default function HomePage() {
                 <div className="summary-item">
                   <span>Cartelle finali selezionate</span>
                   <strong>{selectedTargetPaths.length}</strong>
+                </div>
+                <div className="summary-item">
+                  <span>Percorsi CSV effettivi</span>
+                  <strong>{selectedGenerationPaths.length}</strong>
                 </div>
                 <div className="summary-item">
                   <span>Regola in uso</span>
@@ -2669,14 +2867,18 @@ export default function HomePage() {
                 </div>
               </div>
 
-              {selectedTargetPaths.length ? (
+              {selectedGenerationPaths.length ? (
                 <div className="selected-chip-wrap">
-                  {selectedTargetPaths.map((path) => (
+                  {selectedGenerationPaths.map((path) => (
                     <button
                       key={path}
                       className="selected-chip"
                       type="button"
-                      onClick={() => toggleLevel6(path)}
+                      onClick={() =>
+                        selectedNestedTargetPaths.includes(path)
+                          ? toggleNestedTarget(path)
+                          : toggleLevel6(path)
+                      }
                     >
                       <span>{path}</span>
                       <Glyph name="check" />
@@ -2690,7 +2892,7 @@ export default function HomePage() {
                   className="primary-button"
                   type="button"
                   onClick={loadPreview}
-                  disabled={!selectedTargetPaths.length || previewLoading}
+                  disabled={!selectedGenerationPaths.length || previewLoading || nestedTargetsLoading}
                 >
                   <Glyph name="image" />
                   <span>{previewLoading ? "Anteprima..." : "Carica anteprima"}</span>
