@@ -306,6 +306,32 @@ function formatPaths(paths = []) {
   return `${paths.length} cartelle selezionate`;
 }
 
+function splitSubPath(value) {
+  return String(value || "").split("/").filter(Boolean);
+}
+
+function isFinalJpegFolderName(value) {
+  return String(value || "")
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase() === "final jpeg";
+}
+
+function buildTargetFolderLabel(subPath, level5SubPath, fallbackName = "") {
+  const parentDepth = splitSubPath(level5SubPath).length;
+  const segments = splitSubPath(subPath).slice(parentDepth);
+
+  return segments.length ? segments.join(" / ") : fallbackName || subPath;
+}
+
+function normalizeSelectableTargetFolder(folder, level5SubPath) {
+  return {
+    ...folder,
+    label: buildTargetFolderLabel(folder.subPath, level5SubPath, folder.name)
+  };
+}
+
 function getPrivacyLabel(value) {
   const normalized = String(value || "").toUpperCase();
   if (normalized === "PUBLIC") {
@@ -669,6 +695,68 @@ export default function HomePage() {
     );
   }
 
+  async function collectSelectableTargetFolders(level5SubPath) {
+    const rootPayload = await fetchExplorerPayload(level5SubPath);
+    const visited = new Set();
+    const selectable = new Map();
+    const queue = (rootPayload.folders ?? []).map((folder) => folder.subPath);
+
+    async function processFolder(subPath) {
+      const normalizedSubPath = normalizeCachePath(subPath);
+      if (!normalizedSubPath || visited.has(normalizedSubPath)) {
+        return;
+      }
+
+      visited.add(normalizedSubPath);
+
+      const payload = await fetchExplorerPayload(normalizedSubPath);
+      const folders = payload.folders ?? [];
+      const currentSubPath = payload.currentSubPath || normalizedSubPath;
+      const currentDepth = splitSubPath(currentSubPath).length;
+      const hasFinalJpegChild = folders.some((folder) => isFinalJpegFolderName(folder.name));
+      const hasDirectImages = (payload.files ?? []).some((file) => file.isImage);
+
+      if (currentDepth >= 3 && (hasFinalJpegChild || hasDirectImages)) {
+        selectable.set(currentSubPath, {
+          name: splitSubPath(currentSubPath).at(-1) || currentSubPath,
+          type: "folder",
+          subPath: currentSubPath,
+          displayPath: payload.displayPath,
+          label: buildTargetFolderLabel(currentSubPath, level5SubPath)
+        });
+
+        if (hasFinalJpegChild) {
+          return;
+        }
+      }
+
+      queue.push(
+        ...folders
+          .filter((folder) => !isFinalJpegFolderName(folder.name))
+          .map((folder) => folder.subPath)
+      );
+    }
+
+    async function worker() {
+      while (queue.length) {
+        const subPath = queue.shift();
+        await processFolder(subPath);
+      }
+    }
+
+    await Promise.all(Array.from({ length: Math.min(4, queue.length) }, () => worker()));
+
+    const folders = Array.from(selectable.values()).sort((left, right) =>
+      left.label.localeCompare(right.label, "it", { numeric: true, sensitivity: "base" })
+    );
+
+    return folders.length
+      ? folders
+      : (rootPayload.folders ?? []).map((folder) =>
+          normalizeSelectableTargetFolder(folder, level5SubPath)
+        );
+  }
+
   function getCsvAssistCacheKey(strategy = csvAssistStrategy) {
     return createCsvAssistCacheKey({
       subPaths: selectedTargetPaths,
@@ -809,39 +897,24 @@ export default function HomePage() {
         return;
       }
 
-      const cachedPayloads = selectedLevel5s.map((subPath) => getCachedExplorerPayload(subPath));
-      const hasAllCached = cachedPayloads.every(Boolean);
-      if (hasAllCached) {
-        setCollectionsLoading(false);
-        const groups = cachedPayloads.map((payload) => ({
-          parentSubPath: payload.currentSubPath,
-          parentName: payload.breadcrumbs?.at(-1)?.label ?? payload.currentSubPath,
-          folders: payload.folders ?? []
-        }));
-
-        const allTargets = groups.flatMap((group) => group.folders.map((folder) => folder.subPath));
-        setLevel6Groups(groups);
-        setSelectedTargetPaths((current) => current.filter((path) => allTargets.includes(path)));
-        setPreview(null);
-        setResult(null);
-        return;
-      }
-
       try {
         setCollectionsLoading(true);
-        const payloads = await Promise.all(
-          selectedLevel5s.map((subPath) => fetchExplorerPayload(subPath))
+        const groups = await Promise.all(
+          selectedLevel5s.map(async (subPath) => {
+            const payload = await fetchExplorerPayload(subPath);
+            const folders = await collectSelectableTargetFolders(subPath);
+
+            return {
+              parentSubPath: payload.currentSubPath,
+              parentName: payload.breadcrumbs?.at(-1)?.label ?? payload.currentSubPath,
+              folders
+            };
+          })
         );
 
         if (cancelled) {
           return;
         }
-
-        const groups = payloads.map((payload) => ({
-          parentSubPath: payload.currentSubPath,
-          parentName: payload.breadcrumbs?.at(-1)?.label ?? payload.currentSubPath,
-          folders: payload.folders ?? []
-        }));
 
         const allTargets = groups.flatMap((group) => group.folders.map((folder) => folder.subPath));
         setLevel6Groups(groups);
@@ -2513,7 +2586,7 @@ export default function HomePage() {
                   <div className="selector-head">
                     <div>
                       <h4>Cartelle finali</h4>
-                      <p>Scegli le cartelle di livello 6 da cui leggere i contenuti finali.</p>
+                      <p>Scegli le cartelle da cui leggere i contenuti finali. Se FINAL JPEG e piu in basso, viene mostrata la cartella sopra FINAL JPEG.</p>
                     </div>
                     <div className="inline-actions">
                       <button
@@ -2552,7 +2625,7 @@ export default function HomePage() {
                               checked={selectedTargetPaths.includes(folder.subPath)}
                               onChange={() => toggleLevel6(folder.subPath)}
                             />
-                            <span>{folder.name}</span>
+                            <span>{folder.label || folder.name}</span>
                           </label>
                         ))}
                       </div>
