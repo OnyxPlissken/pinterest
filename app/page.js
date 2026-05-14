@@ -23,6 +23,8 @@ const BOARD_PRIVACY_OPTIONS = [
   { value: "PUBLIC", label: "Pubblica" },
   { value: "SECRET", label: "Privata" }
 ];
+const PIN_EDIT_RESTRICTED_MESSAGE =
+  "Pinterest ha bloccato la modifica dei Pin: l'app non ha accesso alla feature ristretta pin_edit. Finche Pinterest non approva questa capability, titolo, descrizione, link, privacy e spostamenti Pin via API non sono disponibili. Puoi eliminare i Pin e rigenerarli via CSV.";
 const CSV_ASSIST_STRATEGIES = [
   {
     value: "newOnly",
@@ -376,6 +378,12 @@ function replaceBulkText(value, search, replacement) {
   return String(value ?? "").split(searchText).join(String(replacement ?? ""));
 }
 
+function isPinEditRestrictedMessage(value) {
+  const normalized = String(value || "").toLowerCase();
+
+  return normalized.includes("pin_edit") && normalized.includes("feature ristretta");
+}
+
 function getPinSortText(pin) {
   return pin?.title || pin?.description || pin?.id || "";
 }
@@ -575,6 +583,7 @@ export default function HomePage() {
   const [pinterestBoardNameDraft, setPinterestBoardNameDraft] = useState("");
   const [pinterestSectionNameDraft, setPinterestSectionNameDraft] = useState("");
   const [pinterestPinQuery, setPinterestPinQuery] = useState("");
+  const [pinterestPinEditRestricted, setPinterestPinEditRestricted] = useState(false);
   const [editingPinterestPinId, setEditingPinterestPinId] = useState("");
   const [pinterestBulkEditOpen, setPinterestBulkEditOpen] = useState(false);
   const [pinterestBulkEditForm, setPinterestBulkEditForm] = useState(EMPTY_PIN_BULK_EDIT_FORM);
@@ -1519,6 +1528,14 @@ export default function HomePage() {
   }
 
   function openPinterestBulkEditor() {
+    if (pinterestPinEditRestricted) {
+      setPinterestNotice({
+        type: "error",
+        text: PIN_EDIT_RESTRICTED_MESSAGE
+      });
+      return;
+    }
+
     if (!selectedPinterestPinIds.length) {
       setPinterestNotice({
         type: "error",
@@ -1607,16 +1624,26 @@ export default function HomePage() {
         })
       });
 
+      if (payload.restrictedFeature === "pin_edit") {
+        setPinterestPinEditRestricted(true);
+      }
+
       setPinterestBulkEditOpen(false);
       setPinterestNotice({
         type: payload.failed ? "error" : "success",
-        text: `Modifica completata: ${payload.ok} ok, ${payload.failed} errori.`
+        text: payload.message || `Modifica completata: ${payload.ok} ok, ${payload.failed} errori.`
       });
-      await refreshPinterestPins(selectedPinterestBoardId, selectedPinterestSectionId);
+      if (payload.ok) {
+        await refreshPinterestPins(selectedPinterestBoardId, selectedPinterestSectionId);
+      }
     } catch (error) {
+      const message = error instanceof Error ? error.message : "Modifica massiva Pin non completata.";
+      if (isPinEditRestrictedMessage(message)) {
+        setPinterestPinEditRestricted(true);
+      }
       setPinterestNotice({
         type: "error",
-        text: error instanceof Error ? error.message : "Modifica massiva Pin non completata."
+        text: message
       });
     } finally {
       setPinterestActionLoading(false);
@@ -1661,9 +1688,13 @@ export default function HomePage() {
       setEditingPinterestPinId("");
       await refreshPinterestPins(selectedPinterestBoardId, selectedPinterestSectionId);
     } catch (error) {
+      const message = error instanceof Error ? error.message : "Modifica Pin non completata.";
+      if (isPinEditRestrictedMessage(message)) {
+        setPinterestPinEditRestricted(true);
+      }
       setPinterestNotice({
         type: "error",
-        text: error instanceof Error ? error.message : "Modifica Pin non completata."
+        text: message
       });
     } finally {
       setPinterestActionLoading(false);
@@ -3151,6 +3182,11 @@ export default function HomePage() {
               </div>
 
               {pinterestNotice ? <div className={`notice ${pinterestNotice.type}`}>{pinterestNotice.text}</div> : null}
+              {pinterestPinEditRestricted ? (
+                <div className="notice info">
+                  Le modifiche ai Pin via API sono disattivate per questa app perche Pinterest richiede accesso alla feature ristretta pin_edit. Eliminazione e consultazione restano disponibili.
+                </div>
+              ) : null}
 
               <div className="form-grid">
                 <label className="field">
@@ -3587,7 +3623,7 @@ export default function HomePage() {
                     className="secondary-button"
                     type="button"
                     onClick={openPinterestBulkEditor}
-                    disabled={!selectedPinterestPinIds.length || pinterestActionLoading}
+                    disabled={!selectedPinterestPinIds.length || pinterestActionLoading || pinterestPinEditRestricted}
                   >
                     <Glyph name="edit" />
                     <span>Modifica selezionati</span>
@@ -3681,6 +3717,12 @@ export default function HomePage() {
                     ) : (
                       <div className="pin-empty-image">No image</div>
                     )}
+
+                    {pinterestPinEditRestricted ? (
+                      <div className="notice info">
+                        Pinterest non consente a questa app di salvare modifiche sui Pin finche la feature pin_edit resta bloccata.
+                      </div>
+                    ) : null}
 
                     <label className="field">
                       <span>Titolo</span>
@@ -3813,7 +3855,7 @@ export default function HomePage() {
                       className="primary-button"
                       type="button"
                       onClick={updateSelectedPinterestPin}
-                      disabled={pinterestActionLoading}
+                      disabled={pinterestActionLoading || pinterestPinEditRestricted}
                     >
                       <Glyph name="check" />
                       <span>{pinterestActionLoading ? "Salvataggio..." : "Salva Pin"}</span>
