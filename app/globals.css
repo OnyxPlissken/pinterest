@@ -978,20 +978,28 @@ svg {
 
 .checklist-panel {
   margin-top: 14px;
-  display: grid;
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  align-items: flex-start;
   gap: 10px;
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   max-height: 320px;
   overflow: auto;
   padding-right: 4px;
 }
 
 .checklist-panel.grouped {
+  display: grid;
+  align-content: flex-start;
   gap: 14px;
 }
 
 .check-group {
-  display: grid;
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  align-items: flex-start;
   gap: 8px;
   padding: 10px;
   border: 1px solid var(--line);
@@ -1000,6 +1008,7 @@ svg {
 }
 
 .check-group-title {
+  flex: 0 0 100%;
   color: var(--text);
 }
 
@@ -1007,6 +1016,9 @@ svg {
   display: flex;
   align-items: center;
   gap: 10px;
+  width: fit-content;
+  max-width: 100%;
+  min-height: 38px;
   padding: 10px 11px;
   border: 1px solid var(--line);
   border-radius: 10px;
@@ -1020,6 +1032,8 @@ svg {
 
 .check-row span {
   font-size: 11px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 
 .log-card,
