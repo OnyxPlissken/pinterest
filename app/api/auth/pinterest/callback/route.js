@@ -115,7 +115,7 @@ export async function GET(request) {
       {
         error:
           rawMessage === "Authentication failed."
-            ? "Pinterest ha rifiutato App ID/App Secret durante lo scambio OAuth. Verifica nelle impostazioni che App ID e App Secret siano quelli dell'app Pinterest e che il Redirect URI sia https://pinterest-steel.vercel.app/api/auth/pinterest/callback."
+            ? "Pinterest ha rifiutato lo scambio OAuth. Verifica che l'app non sia in stato Negato, che App ID/App Secret siano quelli dell'app Pinterest e che il Redirect URI sia https://pinterest-steel.vercel.app/api/auth/pinterest/callback."
             : rawMessage
       },
       { status: 400 }
