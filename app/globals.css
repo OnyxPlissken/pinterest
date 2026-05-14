@@ -821,6 +821,23 @@ svg {
   background: var(--surface-soft);
 }
 
+.editable-setting {
+  display: grid;
+  gap: 9px;
+}
+
+.setting-field-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.compact-action {
+  min-height: 42px;
+  padding: 10px 12px;
+}
+
 .action-row {
   margin-top: 16px;
 }
@@ -848,6 +865,24 @@ svg {
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
+}
+
+.bulk-edit-stack {
+  display: grid;
+  gap: 10px;
+}
+
+.bulk-edit-toggle {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.bulk-edit-toggle input {
+  margin: 0;
 }
 
 .primary-button {
@@ -1758,6 +1793,10 @@ svg {
   .pin-search {
     width: 100%;
     margin-left: 0;
+  }
+
+  .setting-field-row {
+    grid-template-columns: 1fr;
   }
 
   .modal-backdrop {

@@ -49,6 +49,18 @@ const NATURAL_PIN_SORTER = new Intl.Collator("it-IT", {
   numeric: true,
   sensitivity: "base"
 });
+const EMPTY_PIN_BULK_EDIT_FORM = {
+  updateTitle: false,
+  titleFind: "",
+  titleReplace: "",
+  updateDescription: false,
+  descriptionFind: "",
+  descriptionReplace: "",
+  updateLink: false,
+  link: "",
+  updatePrivacy: false,
+  privacy: "PUBLIC"
+};
 
 function Glyph({ name }) {
   const glyphs = {
@@ -208,6 +220,16 @@ function Glyph({ name }) {
         strokeWidth="1.8"
       />
     ),
+    edit: (
+      <path
+        d="M5 17.8 5.6 14 15.7 3.9a2 2 0 0 1 2.8 0l1.6 1.6a2 2 0 0 1 0 2.8L10 18.4 5 19l.6-1.2ZM14.4 5.2l4.4 4.4"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.6"
+      />
+    ),
     logout: (
       <path
         d="M14 5.2V4.8A1.8 1.8 0 0 0 12.2 3H6.8A1.8 1.8 0 0 0 5 4.8v14.4A1.8 1.8 0 0 0 6.8 21h5.4a1.8 1.8 0 0 0 1.8-1.8v-.4M10 12h9m-3-3 3 3-3 3"
@@ -303,6 +325,19 @@ function getPrivacyLabel(value) {
 
 function getEditableBoardPrivacy(value) {
   return String(value || "").toUpperCase() === "PUBLIC" ? "PUBLIC" : "SECRET";
+}
+
+function getEditablePinPrivacy(value) {
+  return String(value || "").toUpperCase() === "PUBLIC" ? "PUBLIC" : "PROTECTED";
+}
+
+function replaceBulkText(value, search, replacement) {
+  const searchText = String(search ?? "");
+  if (!searchText) {
+    return String(value ?? "");
+  }
+
+  return String(value ?? "").split(searchText).join(String(replacement ?? ""));
 }
 
 function getPinSortText(pin) {
@@ -498,8 +533,12 @@ export default function HomePage() {
   const [selectedPinterestBoardId, setSelectedPinterestBoardId] = useState("");
   const [selectedPinterestSectionId, setSelectedPinterestSectionId] = useState("");
   const [selectedPinterestPinIds, setSelectedPinterestPinIds] = useState([]);
+  const [pinterestBoardNameDraft, setPinterestBoardNameDraft] = useState("");
+  const [pinterestSectionNameDraft, setPinterestSectionNameDraft] = useState("");
   const [pinterestPinQuery, setPinterestPinQuery] = useState("");
   const [editingPinterestPinId, setEditingPinterestPinId] = useState("");
+  const [pinterestBulkEditOpen, setPinterestBulkEditOpen] = useState(false);
+  const [pinterestBulkEditForm, setPinterestBulkEditForm] = useState(EMPTY_PIN_BULK_EDIT_FORM);
   const [pinterestEditForm, setPinterestEditForm] = useState({
     title: "",
     description: "",
@@ -861,6 +900,19 @@ export default function HomePage() {
   }, [activeView, pinterestTree.boards.length]);
 
   useEffect(() => {
+    const selectedBoard = pinterestTree.boards.find((board) => board.id === selectedPinterestBoardId);
+    setPinterestBoardNameDraft(selectedBoard?.name || "");
+  }, [pinterestTree.boards, selectedPinterestBoardId]);
+
+  useEffect(() => {
+    const selectedSection =
+      (pinterestTree.sectionsByBoard[selectedPinterestBoardId] || []).find(
+        (section) => section.id === selectedPinterestSectionId
+      ) || null;
+    setPinterestSectionNameDraft(selectedSection?.name || "");
+  }, [pinterestTree.sectionsByBoard, selectedPinterestBoardId, selectedPinterestSectionId]);
+
+  useEffect(() => {
     if (!editingPinterestPinId) {
       setPinterestEditForm({
         title: "",
@@ -881,7 +933,9 @@ export default function HomePage() {
       link: selectedPin?.link || "",
       boardId: selectedPin?.boardId || "",
       sectionId: selectedPin?.boardSectionId || "",
-      privacy: String(selectedPin?.privacy || selectedBoard?.privacy || selectedPin?.boardPrivacy || "PUBLIC").toUpperCase()
+      privacy: getEditablePinPrivacy(
+        selectedPin?.privacy || selectedBoard?.privacy || selectedPin?.boardPrivacy || "PUBLIC"
+      )
     });
   }, [editingPinterestPinId, pinterestPins, pinterestTree.boards]);
 
@@ -1083,6 +1137,138 @@ export default function HomePage() {
     }
   }
 
+  async function updateSelectedPinterestBoardName() {
+    const boardId = selectedPinterestBoard?.id;
+    const name = pinterestBoardNameDraft.trim();
+
+    if (!boardId) {
+      return;
+    }
+
+    if (!name) {
+      setPinterestNotice({
+        type: "error",
+        text: "Inserisci il nome della bacheca."
+      });
+      return;
+    }
+
+    setPinterestActionLoading(true);
+    setPinterestNotice(null);
+
+    try {
+      await fetchJson("/api/pinterest-admin", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          action: "updateBoard",
+          boardId,
+          name
+        })
+      });
+
+      setPinterestTree((current) => ({
+        ...current,
+        boards: current.boards.map((board) =>
+          board.id === boardId ? { ...board, name } : board
+        ),
+        sectionsByBoard: {
+          ...current.sectionsByBoard,
+          [boardId]: (current.sectionsByBoard[boardId] || []).map((section) => ({
+            ...section,
+            boardName: name
+          }))
+        }
+      }));
+      setPinterestPins((current) =>
+        current.map((pin) => (pin.boardId === boardId ? { ...pin, boardName: name } : pin))
+      );
+      setPinterestNotice({
+        type: "success",
+        text: "Bacheca rinominata."
+      });
+      await refreshPinterestTree(true);
+      await refreshPinterestPins(boardId, selectedPinterestSectionId);
+    } catch (error) {
+      setPinterestNotice({
+        type: "error",
+        text: error instanceof Error ? error.message : "Rinomina bacheca non completata."
+      });
+    } finally {
+      setPinterestActionLoading(false);
+    }
+  }
+
+  async function updateSelectedPinterestSectionName() {
+    const boardId = selectedPinterestBoard?.id;
+    const sectionId = selectedPinterestSection?.id;
+    const name = pinterestSectionNameDraft.trim();
+
+    if (!boardId || !sectionId) {
+      setPinterestNotice({
+        type: "error",
+        text: "Seleziona una sezione da rinominare."
+      });
+      return;
+    }
+
+    if (!name) {
+      setPinterestNotice({
+        type: "error",
+        text: "Inserisci il nome della sezione."
+      });
+      return;
+    }
+
+    setPinterestActionLoading(true);
+    setPinterestNotice(null);
+
+    try {
+      await fetchJson("/api/pinterest-admin", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          action: "updateSection",
+          boardId,
+          sectionId,
+          name
+        })
+      });
+
+      setPinterestTree((current) => ({
+        ...current,
+        sectionsByBoard: {
+          ...current.sectionsByBoard,
+          [boardId]: (current.sectionsByBoard[boardId] || []).map((section) =>
+            section.id === sectionId ? { ...section, name } : section
+          )
+        }
+      }));
+      setPinterestPins((current) =>
+        current.map((pin) =>
+          pin.boardSectionId === sectionId ? { ...pin, sectionName: name } : pin
+        )
+      );
+      setPinterestNotice({
+        type: "success",
+        text: "Sezione rinominata."
+      });
+      await refreshPinterestTree(true);
+      await refreshPinterestPins(boardId, sectionId);
+    } catch (error) {
+      setPinterestNotice({
+        type: "error",
+        text: error instanceof Error ? error.message : "Rinomina sezione non completata."
+      });
+    } finally {
+      setPinterestActionLoading(false);
+    }
+  }
+
   function openPinterestCreateModal(type = "board") {
     setPinterestCreateForm({
       type,
@@ -1202,6 +1388,111 @@ export default function HomePage() {
       setPinterestNotice({
         type: "error",
         text: error instanceof Error ? error.message : "Eliminazione Pin non completata."
+      });
+    } finally {
+      setPinterestActionLoading(false);
+    }
+  }
+
+  function openPinterestBulkEditor() {
+    if (!selectedPinterestPinIds.length) {
+      setPinterestNotice({
+        type: "error",
+        text: "Seleziona almeno un Pin da modificare."
+      });
+      return;
+    }
+
+    setPinterestBulkEditForm(EMPTY_PIN_BULK_EDIT_FORM);
+    setPinterestBulkEditOpen(true);
+    setPinterestNotice(null);
+  }
+
+  async function updateSelectedPinterestPinsBulk() {
+    const selectedPins = pinterestPins.filter((pin) => selectedPinterestPinIds.includes(pin.id));
+    const hasChanges =
+      pinterestBulkEditForm.updateTitle ||
+      pinterestBulkEditForm.updateDescription ||
+      pinterestBulkEditForm.updateLink ||
+      pinterestBulkEditForm.updatePrivacy;
+
+    if (!selectedPins.length) {
+      setPinterestNotice({
+        type: "error",
+        text: "Seleziona almeno un Pin da modificare."
+      });
+      return;
+    }
+
+    if (!hasChanges) {
+      setPinterestNotice({
+        type: "error",
+        text: "Scegli almeno un campo da aggiornare."
+      });
+      return;
+    }
+
+    if (pinterestBulkEditForm.updateTitle && !pinterestBulkEditForm.titleFind) {
+      setPinterestNotice({
+        type: "error",
+        text: "Inserisci il testo da cercare nel titolo."
+      });
+      return;
+    }
+
+    if (pinterestBulkEditForm.updateDescription && !pinterestBulkEditForm.descriptionFind) {
+      setPinterestNotice({
+        type: "error",
+        text: "Inserisci il testo da cercare nella descrizione."
+      });
+      return;
+    }
+
+    setPinterestActionLoading(true);
+    setPinterestNotice(null);
+
+    try {
+      const updates = selectedPins.map((pin) => ({
+        pinId: pin.id,
+        boardId: pin.boardId,
+        sectionId: pin.boardSectionId || "",
+        title: pinterestBulkEditForm.updateTitle
+          ? replaceBulkText(pin.title, pinterestBulkEditForm.titleFind, pinterestBulkEditForm.titleReplace)
+          : pin.title,
+        description: pinterestBulkEditForm.updateDescription
+          ? replaceBulkText(
+              pin.description,
+              pinterestBulkEditForm.descriptionFind,
+              pinterestBulkEditForm.descriptionReplace
+            )
+          : pin.description,
+        link: pinterestBulkEditForm.updateLink ? pinterestBulkEditForm.link : pin.link,
+        privacy: pinterestBulkEditForm.updatePrivacy
+          ? pinterestBulkEditForm.privacy
+          : getEditablePinPrivacy(pin.privacy || pin.boardPrivacy || "PUBLIC")
+      }));
+
+      const payload = await fetchJson("/api/pinterest-admin", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          action: "bulkUpdatePins",
+          updates
+        })
+      });
+
+      setPinterestBulkEditOpen(false);
+      setPinterestNotice({
+        type: payload.failed ? "error" : "success",
+        text: `Modifica completata: ${payload.ok} ok, ${payload.failed} errori.`
+      });
+      await refreshPinterestPins(selectedPinterestBoardId, selectedPinterestSectionId);
+    } catch (error) {
+      setPinterestNotice({
+        type: "error",
+        text: error instanceof Error ? error.message : "Modifica massiva Pin non completata."
       });
     } finally {
       setPinterestActionLoading(false);
@@ -1946,6 +2237,12 @@ export default function HomePage() {
     () => pinterestTree.sectionsByBoard[selectedPinterestBoardId] || [],
     [pinterestTree.sectionsByBoard, selectedPinterestBoardId]
   );
+  const selectedPinterestSection = useMemo(
+    () =>
+      selectedPinterestSections.find((section) => section.id === selectedPinterestSectionId) ||
+      null,
+    [selectedPinterestSections, selectedPinterestSectionId]
+  );
   const allPinterestSections = useMemo(
     () => collectSections(pinterestTree.sectionsByBoard),
     [pinterestTree.sectionsByBoard]
@@ -2676,6 +2973,57 @@ export default function HomePage() {
                   <span>Sezioni</span>
                   <strong>{allPinterestSections.length}</strong>
                 </div>
+                <div className="setting-card editable-setting">
+                  <span>Nome bacheca</span>
+                  <div className="setting-field-row">
+                    <input
+                      className="select-field"
+                      type="text"
+                      value={pinterestBoardNameDraft}
+                      onChange={(event) => setPinterestBoardNameDraft(event.target.value)}
+                      disabled={!selectedPinterestBoard || pinterestActionLoading}
+                    />
+                    <button
+                      className="secondary-button compact-action"
+                      type="button"
+                      onClick={updateSelectedPinterestBoardName}
+                      disabled={
+                        !selectedPinterestBoard ||
+                        pinterestActionLoading ||
+                        !pinterestBoardNameDraft.trim() ||
+                        pinterestBoardNameDraft.trim() === selectedPinterestBoard.name
+                      }
+                    >
+                      Salva
+                    </button>
+                  </div>
+                </div>
+                <div className="setting-card editable-setting">
+                  <span>Nome sezione</span>
+                  <div className="setting-field-row">
+                    <input
+                      className="select-field"
+                      type="text"
+                      value={pinterestSectionNameDraft}
+                      onChange={(event) => setPinterestSectionNameDraft(event.target.value)}
+                      disabled={!selectedPinterestSection || pinterestActionLoading}
+                      placeholder={selectedPinterestSection ? "Nome sezione" : "Seleziona una sezione"}
+                    />
+                    <button
+                      className="secondary-button compact-action"
+                      type="button"
+                      onClick={updateSelectedPinterestSectionName}
+                      disabled={
+                        !selectedPinterestSection ||
+                        pinterestActionLoading ||
+                        !pinterestSectionNameDraft.trim() ||
+                        pinterestSectionNameDraft.trim() === selectedPinterestSection.name
+                      }
+                    >
+                      Salva
+                    </button>
+                  </div>
+                </div>
                 <div className="setting-card">
                   <span>Privacy bacheca</span>
                   <select
@@ -2821,6 +3169,180 @@ export default function HomePage() {
               </div>
             ) : null}
 
+            {pinterestBulkEditOpen ? (
+              <div className="modal-backdrop" role="presentation" onClick={() => setPinterestBulkEditOpen(false)}>
+                <section className="decision-modal compact-modal" role="dialog" aria-modal="true" aria-label="Modifica Pin selezionati" onClick={(event) => event.stopPropagation()}>
+                  <div className="decision-modal-head">
+                    <div>
+                      <span className="meta-label">Pinterest editor</span>
+                      <h3>Modifica Pin selezionati</h3>
+                      <p>Scegli solo i campi da aggiornare. I campi non selezionati restano invariati per ogni Pin.</p>
+                    </div>
+                    <button className="icon-button compact" type="button" onClick={() => setPinterestBulkEditOpen(false)}>
+                      <Glyph name="back" />
+                    </button>
+                  </div>
+
+                  <div className="decision-modal-body single-column">
+                    <div className="preview-info-card">
+                      <span>Pin selezionati</span>
+                      <strong>{selectedPinterestPinIds.length}</strong>
+                    </div>
+
+                    <div className="bulk-edit-stack">
+                      <label className="bulk-edit-toggle">
+                        <input
+                          type="checkbox"
+                          checked={pinterestBulkEditForm.updateTitle}
+                          onChange={(event) =>
+                            setPinterestBulkEditForm((current) => ({
+                              ...current,
+                              updateTitle: event.target.checked
+                            }))
+                          }
+                        />
+                        <span>Titolo</span>
+                      </label>
+                      <input
+                        className="select-field"
+                        type="text"
+                        value={pinterestBulkEditForm.titleFind}
+                        onChange={(event) =>
+                          setPinterestBulkEditForm((current) => ({
+                            ...current,
+                            titleFind: event.target.value
+                          }))
+                        }
+                        disabled={!pinterestBulkEditForm.updateTitle}
+                        placeholder="Testo da cercare nel titolo"
+                      />
+                      <input
+                        className="select-field"
+                        type="text"
+                        value={pinterestBulkEditForm.titleReplace}
+                        onChange={(event) =>
+                          setPinterestBulkEditForm((current) => ({
+                            ...current,
+                            titleReplace: event.target.value
+                          }))
+                        }
+                        disabled={!pinterestBulkEditForm.updateTitle}
+                        placeholder="Sostituisci con"
+                      />
+
+                      <label className="bulk-edit-toggle">
+                        <input
+                          type="checkbox"
+                          checked={pinterestBulkEditForm.updateDescription}
+                          onChange={(event) =>
+                            setPinterestBulkEditForm((current) => ({
+                              ...current,
+                              updateDescription: event.target.checked
+                            }))
+                          }
+                        />
+                        <span>Descrizione</span>
+                      </label>
+                      <input
+                        className="select-field"
+                        type="text"
+                        value={pinterestBulkEditForm.descriptionFind}
+                        onChange={(event) =>
+                          setPinterestBulkEditForm((current) => ({
+                            ...current,
+                            descriptionFind: event.target.value
+                          }))
+                        }
+                        disabled={!pinterestBulkEditForm.updateDescription}
+                        placeholder="Testo da cercare nella descrizione"
+                      />
+                      <input
+                        className="select-field"
+                        type="text"
+                        value={pinterestBulkEditForm.descriptionReplace}
+                        onChange={(event) =>
+                          setPinterestBulkEditForm((current) => ({
+                            ...current,
+                            descriptionReplace: event.target.value
+                          }))
+                        }
+                        disabled={!pinterestBulkEditForm.updateDescription}
+                        placeholder="Sostituisci con"
+                      />
+
+                      <label className="bulk-edit-toggle">
+                        <input
+                          type="checkbox"
+                          checked={pinterestBulkEditForm.updateLink}
+                          onChange={(event) =>
+                            setPinterestBulkEditForm((current) => ({
+                              ...current,
+                              updateLink: event.target.checked
+                            }))
+                          }
+                        />
+                        <span>Link</span>
+                      </label>
+                      <input
+                        className="select-field"
+                        type="text"
+                        value={pinterestBulkEditForm.link}
+                        onChange={(event) =>
+                          setPinterestBulkEditForm((current) => ({
+                            ...current,
+                            link: event.target.value
+                          }))
+                        }
+                        disabled={!pinterestBulkEditForm.updateLink}
+                        placeholder="Lascia vuoto per rimuovere il link"
+                      />
+
+                      <label className="bulk-edit-toggle">
+                        <input
+                          type="checkbox"
+                          checked={pinterestBulkEditForm.updatePrivacy}
+                          onChange={(event) =>
+                            setPinterestBulkEditForm((current) => ({
+                              ...current,
+                              updatePrivacy: event.target.checked
+                            }))
+                          }
+                        />
+                        <span>Privacy Pin</span>
+                      </label>
+                      <select
+                        className="select-field"
+                        value={pinterestBulkEditForm.privacy}
+                        onChange={(event) =>
+                          setPinterestBulkEditForm((current) => ({
+                            ...current,
+                            privacy: event.target.value
+                          }))
+                        }
+                        disabled={!pinterestBulkEditForm.updatePrivacy}
+                      >
+                        {PIN_PRIVACY_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="decision-modal-actions">
+                    <button className="secondary-button" type="button" onClick={() => setPinterestBulkEditOpen(false)} disabled={pinterestActionLoading}>
+                      Annulla
+                    </button>
+                    <button className="primary-button" type="button" onClick={updateSelectedPinterestPinsBulk} disabled={pinterestActionLoading}>
+                      <Glyph name="check" />
+                      <span>{pinterestActionLoading ? "Salvataggio..." : "Applica modifiche"}</span>
+                    </button>
+                  </div>
+                </section>
+              </div>
+            ) : null}
+
             <article className="panel">
               <div className="panel-head">
                 <div>
@@ -2837,6 +3359,15 @@ export default function HomePage() {
                   <button className="secondary-button" type="button" onClick={selectAllPinterestPins} disabled={!visiblePinterestPins.length}>
                     <Glyph name="check" />
                     <span>Seleziona tutti</span>
+                  </button>
+                  <button
+                    className="secondary-button"
+                    type="button"
+                    onClick={openPinterestBulkEditor}
+                    disabled={!selectedPinterestPinIds.length || pinterestActionLoading}
+                  >
+                    <Glyph name="edit" />
+                    <span>Modifica selezionati</span>
                   </button>
                   <button
                     className="secondary-button"
@@ -2886,7 +3417,7 @@ export default function HomePage() {
                     </button>
                     <button className="pin-meta" type="button" onClick={() => openPinterestPinEditor(pin)}>
                       <strong>{pin.boardName}</strong>
-                      <span>{pin.sectionName || "Nessuna sezione"} · {getPrivacyLabel(pin.boardPrivacy)}</span>
+                      <span>{pin.sectionName || "Nessuna sezione"} · {getPrivacyLabel(pin.privacy || pin.boardPrivacy)}</span>
                       {pin.link ? <small>{pin.link}</small> : <small>Link vuoto</small>}
                     </button>
                   </article>

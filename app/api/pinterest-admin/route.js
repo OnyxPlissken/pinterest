@@ -1,11 +1,14 @@
 import {
+  bulkUpdatePinterestAdminPins,
   createPinterestAdminBoard,
   createPinterestAdminSection,
   deletePinterestAdminPins,
   getPinterestAdminPins,
   getPinterestAdminTree,
+  updatePinterestAdminBoard,
   updatePinterestAdminBoardPrivacy,
-  updatePinterestAdminPin
+  updatePinterestAdminPin,
+  updatePinterestAdminSection
 } from "../../../lib/pinterest-admin";
 import { getRuntimeConfig } from "../../../lib/admin-store";
 import { normalizeOperationalError } from "../../../lib/operational-errors";
@@ -76,11 +79,47 @@ export async function POST(request) {
       );
     }
 
+    if (body?.action === "bulkUpdatePins") {
+      return Response.json(
+        await bulkUpdatePinterestAdminPins(runtimeConfig.config, {
+          updates: body.updates
+        })
+      );
+    }
+
+    if (body?.action === "updateBoard") {
+      const boardUpdate = {
+        boardId: body.boardId
+      };
+
+      if (Object.prototype.hasOwnProperty.call(body, "name")) {
+        boardUpdate.name = body.name;
+      }
+
+      if (Object.prototype.hasOwnProperty.call(body, "privacy")) {
+        boardUpdate.privacy = body.privacy;
+      }
+
+      return Response.json(
+        await updatePinterestAdminBoard(runtimeConfig.config, boardUpdate)
+      );
+    }
+
     if (body?.action === "updateBoardPrivacy") {
       return Response.json(
         await updatePinterestAdminBoardPrivacy(runtimeConfig.config, {
           boardId: body.boardId,
           privacy: body.privacy
+        })
+      );
+    }
+
+    if (body?.action === "updateSection") {
+      return Response.json(
+        await updatePinterestAdminSection(runtimeConfig.config, {
+          boardId: body.boardId,
+          sectionId: body.sectionId,
+          name: body.name
         })
       );
     }
