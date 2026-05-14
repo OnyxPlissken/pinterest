@@ -27,7 +27,7 @@ const CSV_ASSIST_STRATEGIES = [
   {
     value: "newOnly",
     label: "Crea solo i Pin nuovi",
-    description: "Genera solo asset mai esportati e mai trovati su Pinterest. I Pin gia tracciati vengono saltati, anche se sono cambiati."
+    description: "Genera gli asset senza Pin ID Pinterest. Anche se erano gia finiti in un CSV, se Pinterest non li identifica rientrano qui."
   },
   {
     value: "replaceChanged",
@@ -2417,7 +2417,7 @@ export default function HomePage() {
                         <div className="summary-item">
                           <span>
                             {csvAssistStrategy === "newOnly"
-                              ? "Nuovi mai tracciati"
+                              ? "Senza Pin ID Pinterest"
                               : "Da generare senza delete"}
                           </span>
                           <strong>{csvAssist?.summary?.create || 0}</strong>
