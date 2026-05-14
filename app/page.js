@@ -2415,7 +2415,7 @@ export default function HomePage() {
                           <strong>{csvAssist?.summary?.needsCsv || 0}</strong>
                         </div>
                         <div className="summary-item">
-                          <span>Nuovi</span>
+                          <span>Nuovi / senza delete</span>
                           <strong>{csvAssist?.summary?.create || 0}</strong>
                         </div>
                         <div className="summary-item">
@@ -2429,6 +2429,10 @@ export default function HomePage() {
                         <div className="summary-item">
                           <span>Saltati</span>
                           <strong>{csvAssist?.summary?.unchanged || 0}</strong>
+                        </div>
+                        <div className="summary-item">
+                          <span>Modificati fuori CSV</span>
+                          <strong>{csvAssist?.summary?.changed || 0}</strong>
                         </div>
                         <div className="summary-item">
                           <span>Bacheche mancanti</span>
