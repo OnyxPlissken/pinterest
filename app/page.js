@@ -748,9 +748,7 @@ export default function HomePage() {
           label: buildTargetFolderLabel(currentSubPath, targetSubPath)
         });
 
-        if (hasFinalJpegChild) {
-          return;
-        }
+        return;
       }
 
       queue.push(
@@ -2779,7 +2777,7 @@ export default function HomePage() {
                     <div className="selector-head">
                       <div>
                         <h4>Sottocartelle contenuto</h4>
-                        <p>Se la cartella finale ha livelli prima di FINAL JPEG, scegli qui il ramo specifico. Se lasci vuoto, viene usata la cartella finale intera.</p>
+                        <p>Se la cartella finale ha livelli prima di FINAL JPEG, scegli qui il ramo specifico. Se lasci vuoto, vengono usate le FINAL JPEG piu vicine alla cartella scelta.</p>
                       </div>
                       <div className="inline-actions">
                         <button
