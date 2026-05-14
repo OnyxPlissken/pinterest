@@ -995,6 +995,18 @@ svg {
   gap: 14px;
 }
 
+.creative-lines-list {
+  display: grid;
+  align-content: stretch;
+  align-items: stretch;
+  flex: 1 1 auto;
+}
+
+.creative-lines-list .check-row {
+  width: auto;
+  min-height: auto;
+}
+
 .check-group {
   display: flex;
   flex-wrap: wrap;

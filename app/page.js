@@ -2689,7 +2689,7 @@ export default function HomePage() {
                     </div>
                   </div>
 
-                  <div className="checklist-panel">
+                  <div className="checklist-panel creative-lines-list">
                     {level5Folders.map((folder) => (
                       <label className="check-row" key={folder.subPath}>
                         <input
