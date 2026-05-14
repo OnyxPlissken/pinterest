@@ -2774,66 +2774,58 @@ export default function HomePage() {
                   </div>
                 </article>
 
-                <article className="selector-panel">
-                  <div className="selector-head">
-                    <div>
-                      <h4>Sottocartelle contenuto</h4>
-                      <p>Se la cartella finale ha livelli prima di FINAL JPEG, scegli qui il ramo specifico. Se lasci vuoto, viene usata la cartella finale intera.</p>
-                    </div>
-                    <div className="inline-actions">
-                      <button
-                        className="panel-button subtle"
-                        type="button"
-                        disabled={!allNestedTargetPaths.length || nestedTargetsLoading}
-                        onClick={() => {
-                          setSelectedNestedTargetPaths(allNestedTargetPaths);
-                          resetOutputs();
-                        }}
-                      >
-                        Tutte
-                      </button>
-                      <button
-                        className="panel-button subtle"
-                        type="button"
-                        disabled={!selectedNestedTargetPaths.length}
-                        onClick={() => {
-                          setSelectedNestedTargetPaths([]);
-                          resetOutputs();
-                        }}
-                      >
-                        Pulisci
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="checklist-panel grouped">
-                    {nestedTargetGroups.map((group) => (
-                      <div className="check-group" key={group.parentSubPath}>
-                        <div className="check-group-title">{group.parentName}</div>
-                        {group.folders.map((folder) => (
-                          <label className="check-row" key={folder.subPath}>
-                            <input
-                              type="checkbox"
-                              checked={selectedNestedTargetPaths.includes(folder.subPath)}
-                              onChange={() => toggleNestedTarget(folder.subPath)}
-                            />
-                            <span>{folder.label || folder.name}</span>
-                          </label>
-                        ))}
+                {nestedTargetGroups.length ? (
+                  <article className="selector-panel">
+                    <div className="selector-head">
+                      <div>
+                        <h4>Sottocartelle contenuto</h4>
+                        <p>Se la cartella finale ha livelli prima di FINAL JPEG, scegli qui il ramo specifico. Se lasci vuoto, viene usata la cartella finale intera.</p>
                       </div>
-                    ))}
-
-                    {!nestedTargetGroups.length ? (
-                      <div className="empty-block">
-                        {nestedTargetsLoading
-                          ? "Sto leggendo le sottocartelle selezionate..."
-                          : selectedTargetPaths.length
-                            ? "Le cartelle selezionate arrivano gia ai contenuti finali."
-                            : "Seleziona una cartella finale per verificare eventuali sottocartelle."}
+                      <div className="inline-actions">
+                        <button
+                          className="panel-button subtle"
+                          type="button"
+                          disabled={!allNestedTargetPaths.length || nestedTargetsLoading}
+                          onClick={() => {
+                            setSelectedNestedTargetPaths(allNestedTargetPaths);
+                            resetOutputs();
+                          }}
+                        >
+                          Tutte
+                        </button>
+                        <button
+                          className="panel-button subtle"
+                          type="button"
+                          disabled={!selectedNestedTargetPaths.length}
+                          onClick={() => {
+                            setSelectedNestedTargetPaths([]);
+                            resetOutputs();
+                          }}
+                        >
+                          Pulisci
+                        </button>
                       </div>
-                    ) : null}
-                  </div>
-                </article>
+                    </div>
+
+                    <div className="checklist-panel grouped">
+                      {nestedTargetGroups.map((group) => (
+                        <div className="check-group" key={group.parentSubPath}>
+                          <div className="check-group-title">{group.parentName}</div>
+                          {group.folders.map((folder) => (
+                            <label className="check-row" key={folder.subPath}>
+                              <input
+                                type="checkbox"
+                                checked={selectedNestedTargetPaths.includes(folder.subPath)}
+                                onChange={() => toggleNestedTarget(folder.subPath)}
+                              />
+                              <span>{folder.label || folder.name}</span>
+                            </label>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  </article>
+                ) : null}
               </div>
 
               <div className="selection-summary">

@@ -529,7 +529,8 @@ svg {
 
 .multi-grid {
   margin-top: 16px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  align-items: stretch;
 }
 
 .field {
@@ -943,6 +944,9 @@ svg {
   border-radius: 14px;
   border: 1px solid var(--line);
   background: var(--surface-soft);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
 }
 
 .selector-head {
@@ -976,6 +980,7 @@ svg {
   margin-top: 14px;
   display: grid;
   gap: 10px;
+  flex: 1 1 auto;
   max-height: 320px;
   overflow: auto;
   padding-right: 4px;
