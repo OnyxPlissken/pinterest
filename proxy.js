@@ -4,7 +4,7 @@ import { SESSION_COOKIE_NAME, verifySessionToken } from "./lib/session";
 const PUBLIC_ROUTES = new Set(["/api/health", "/api/auth/login", "/privacy"]);
 
 function isPublicRoute(pathname) {
-  return PUBLIC_ROUTES.has(pathname) || pathname.startsWith("/media");
+  return PUBLIC_ROUTES.has(pathname) || pathname.startsWith("/media") || pathname.startsWith("/assets/");
 }
 
 function unauthorizedApiResponse() {
