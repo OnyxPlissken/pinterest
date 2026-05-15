@@ -1572,7 +1572,7 @@ svg {
 }
 
 .legal-card {
-  width: min(920px, 100%);
+  width: min(1080px, 100%);
   padding: 26px;
   border: 1px solid var(--line);
   border-radius: 18px;
@@ -1594,19 +1594,22 @@ svg {
 }
 
 .legal-logo {
-  width: 74px;
-  height: 74px;
+  width: 210px;
+  height: 64px;
   border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--line));
-  border-radius: 16px;
+  border-radius: 12px;
   display: grid;
   place-items: center;
-  color: var(--accent);
-  font-size: 18px;
-  font-weight: 900;
-  letter-spacing: 0.12em;
-  background:
-    linear-gradient(135deg, color-mix(in srgb, var(--accent) 13%, transparent), transparent 62%),
-    var(--surface-soft);
+  background: #ffffff;
+  padding: 10px 14px;
+  flex: 0 0 auto;
+}
+
+.legal-logo-image {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: contain;
 }
 
 .legal-kicker,
@@ -1636,6 +1639,37 @@ svg {
   line-height: 1.8;
 }
 
+.legal-card a:not(.legal-back) {
+  color: var(--text);
+  font-weight: 800;
+  text-decoration: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+.legal-card a:not(.legal-back):hover {
+  color: var(--accent);
+}
+
+.legal-intro {
+  color: var(--text) !important;
+}
+
+.legal-list {
+  margin: 12px 0 0;
+  padding-left: 19px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.8;
+}
+
+.legal-list li + li {
+  margin-top: 8px;
+}
+
+.legal-list strong {
+  color: var(--text);
+}
+
 .compliance-strip {
   display: flex;
   flex-wrap: wrap;
@@ -1659,6 +1693,10 @@ svg {
   gap: 10px;
 }
 
+.compliance-links-wide {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .compliance-links a {
   min-height: 108px;
   padding: 13px;
@@ -1671,6 +1709,7 @@ svg {
   color: var(--text);
   background: var(--surface-soft);
   text-decoration: none;
+  border-bottom: 1px solid var(--line) !important;
   transition:
     border-color var(--transition),
     transform var(--transition),
@@ -1713,13 +1752,13 @@ svg {
   }
 
   .legal-logo {
-    width: 58px;
-    height: 58px;
-    border-radius: 13px;
-    font-size: 14px;
+    width: 150px;
+    height: 50px;
+    padding: 8px 10px;
   }
 
-  .compliance-links {
+  .compliance-links,
+  .compliance-links-wide {
     grid-template-columns: 1fr;
   }
 }
