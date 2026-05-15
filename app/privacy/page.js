@@ -8,9 +8,25 @@ export default function PrivacyPage() {
   return (
     <main className="legal-shell">
       <section className="legal-card">
-        <div className="legal-kicker">Privacy Policy</div>
-        <h1>ISAIA SharePoint Pinterest Manager</h1>
-        <p className="legal-updated">Last updated: May 15, 2026</p>
+        <header className="legal-hero">
+          <div className="legal-brand">
+            <div className="legal-logo">ISAIA</div>
+            <div>
+              <div className="legal-kicker">Privacy Policy</div>
+              <h1>ISAIA SharePoint Pinterest Manager</h1>
+              <p className="legal-updated">Last updated: May 15, 2026</p>
+            </div>
+          </div>
+
+          <div className="compliance-strip" aria-label="Compliance summary">
+            <span>Internal ISAIA use only</span>
+            <span>Official Pinterest API</span>
+            <span>OAuth authorization</span>
+            <span>No Pinterest affiliation</span>
+            <span>No resale or redistribution</span>
+            <span>Disconnect cleanup within 30 days</span>
+          </div>
+        </header>
 
         <p>
           ISAIA SharePoint Pinterest Manager is an internal web application used by
@@ -76,6 +92,33 @@ export default function PrivacyPage() {
           ISAIA may also delete Pinterest-derived metadata earlier upon administrative
           request or when the connected Pinterest account access is revoked.
         </p>
+
+        <h2>Compliance References</h2>
+        <p>
+          This policy is designed to address Pinterest API review requirements and
+          Pinterest&apos;s developer policy principles around transparency, OAuth
+          authorization, credential protection, API data restrictions, and not selling
+          or sharing Pinterest-derived data with third parties.
+        </p>
+        <p>
+          The references below are provided for review transparency only. They do not
+          imply that this application is approved, certified, sponsored, or affiliated
+          with Pinterest.
+        </p>
+        <div className="compliance-links">
+          <a href="https://policy.pinterest.com/en/developer-guidelines" target="_blank" rel="noreferrer">
+            <span>Developer Guidelines</span>
+            <strong>Transparency, OAuth authorization, API data restrictions, and API credential handling.</strong>
+          </a>
+          <a href="https://developers.pinterest.com/docs/getting-started/set-up-authentication-and-authorization/" target="_blank" rel="noreferrer">
+            <span>OAuth Documentation</span>
+            <strong>Authorization code flow, redirect URI, scopes, access tokens, and refresh tokens.</strong>
+          </a>
+          <a href="https://developers.pinterest.com/docs/key-concepts/access-tiers/" target="_blank" rel="noreferrer">
+            <span>API Access Tiers</span>
+            <strong>Trial and Standard API access expectations, review steps, and common denial reasons.</strong>
+          </a>
+        </div>
 
         <h2>SharePoint Assets</h2>
         <p>

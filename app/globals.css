@@ -1580,6 +1580,35 @@ svg {
   box-shadow: var(--shadow);
 }
 
+.legal-hero {
+  display: grid;
+  gap: 18px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.legal-brand {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.legal-logo {
+  width: 74px;
+  height: 74px;
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--line));
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  color: var(--accent);
+  font-size: 18px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--accent) 13%, transparent), transparent 62%),
+    var(--surface-soft);
+}
+
 .legal-kicker,
 .legal-updated {
   color: var(--muted);
@@ -1607,11 +1636,92 @@ svg {
   line-height: 1.8;
 }
 
+.compliance-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.compliance-strip span {
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--text);
+  background: var(--surface-soft);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.compliance-links {
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.compliance-links a {
+  min-height: 108px;
+  padding: 13px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--text);
+  background: var(--surface-soft);
+  text-decoration: none;
+  transition:
+    border-color var(--transition),
+    transform var(--transition),
+    background var(--transition);
+}
+
+.compliance-links a:hover {
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--line));
+  background: color-mix(in srgb, var(--accent) 9%, var(--surface-soft));
+  transform: translateY(-1px);
+}
+
+.compliance-links span {
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.compliance-links strong {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.55;
+}
+
 .legal-back {
   display: inline-flex;
   margin-top: 24px;
   font-size: 12px;
   font-weight: 800;
+}
+
+@media (max-width: 720px) {
+  .legal-card {
+    padding: 20px;
+  }
+
+  .legal-brand {
+    align-items: flex-start;
+  }
+
+  .legal-logo {
+    width: 58px;
+    height: 58px;
+    border-radius: 13px;
+    font-size: 14px;
+  }
+
+  .compliance-links {
+    grid-template-columns: 1fr;
+  }
 }
 
 .user-list,
