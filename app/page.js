@@ -464,7 +464,7 @@ function buildRuleForm(rule) {
 
 function buildSettingsForm(settings) {
   return {
-    appName: settings?.appName || "Pinterest Assets Management",
+    appName: settings?.appName || "ISAIA SharePoint Pin Manager",
     defaultRuleId: settings?.defaultRuleId || "",
     driveName: settings?.sharePoint?.driveName || settings?.library || "",
     baseFolder: settings?.sharePoint?.baseFolder || settings?.baseFolder || "",
@@ -2536,7 +2536,7 @@ export default function HomePage() {
           <div>
             <div className="brand-title">ISAIA e ISAIA</div>
             <div className="brand-subtitle">
-              {systemInfo?.settings?.appName || "Pinterest Assets Management"}
+              {systemInfo?.settings?.appName || "ISAIA SharePoint Pin Manager"}
             </div>
           </div>
         </div>

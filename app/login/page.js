@@ -110,7 +110,7 @@ export default function LoginPage() {
             <div className="brand-mark">I</div>
             <div>
               <div className="brand-title">ISAIA e ISAIA</div>
-              <div className="brand-subtitle">Pinterest Assets Management</div>
+              <div className="brand-subtitle">SharePoint Pin Manager</div>
             </div>
           </div>
         </div>
