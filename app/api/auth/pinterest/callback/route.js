@@ -49,6 +49,23 @@ function readCookie(request, name) {
     ?.slice(name.length + 1) || "";
 }
 
+function redirectToPinterestAdmin(request, { status, message }) {
+  const url = new URL("/", request.nextUrl.origin);
+  url.searchParams.set("view", "pinterest");
+  url.searchParams.set("pinterestOAuth", status);
+  if (message) {
+    url.searchParams.set("message", message);
+  }
+
+  return new Response(null, {
+    status: 302,
+    headers: {
+      Location: url.toString(),
+      "Set-Cookie": "pinterest_oauth_state=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0"
+    }
+  });
+}
+
 export async function GET(request) {
   const session = await getSessionFromRequest(request);
 
@@ -61,21 +78,27 @@ export async function GET(request) {
   const expectedState = readCookie(request, "pinterest_oauth_state");
 
   if (!code) {
-    return Response.json({ error: "Pinterest non ha restituito il codice OAuth." }, { status: 400 });
+    return redirectToPinterestAdmin(request, {
+      status: "error",
+      message: "Pinterest non ha restituito il codice OAuth."
+    });
   }
 
   if (!state || !expectedState || state !== expectedState) {
-    return Response.json({ error: "Stato OAuth Pinterest non valido." }, { status: 400 });
+    return redirectToPinterestAdmin(request, {
+      status: "error",
+      message: "Stato OAuth Pinterest non valido. Riprova da Connetti OAuth."
+    });
   }
 
   const runtimeConfig = await getRuntimeConfig();
   const { appId, appSecret } = runtimeConfig.config.pinterest;
 
   if (!appId || !appSecret) {
-    return Response.json(
-      { error: "Configura Pinterest App ID e App Secret prima di completare OAuth." },
-      { status: 400 }
-    );
+    return redirectToPinterestAdmin(request, {
+      status: "error",
+      message: "Configura Pinterest App ID e App Secret prima di completare OAuth."
+    });
   }
 
   const redirectUri = `${request.nextUrl.origin}/api/auth/pinterest/callback`;
@@ -111,15 +134,13 @@ export async function GET(request) {
       payload.error_description ||
       payload.error ||
       "Scambio OAuth Pinterest non riuscito.";
-    return Response.json(
-      {
-        error:
-          rawMessage === "Authentication failed."
-            ? "Pinterest ha rifiutato lo scambio OAuth. Verifica che l'app non sia in stato Negato, che App ID/App Secret siano quelli dell'app Pinterest e che il Redirect URI sia https://pinterest-steel.vercel.app/api/auth/pinterest/callback."
-            : rawMessage
-      },
-      { status: 400 }
-    );
+    return redirectToPinterestAdmin(request, {
+      status: "error",
+      message:
+        rawMessage === "Authentication failed."
+          ? "Pinterest ha rifiutato lo scambio OAuth. Se l'app e in stato Negato, il redirect torna correttamente qui ma Pinterest non rilascia il token finche non riapre o approva l'app."
+          : rawMessage
+    });
   }
 
   await updatePinterestTokens({
@@ -127,11 +148,8 @@ export async function GET(request) {
     refreshToken: success.payload.refresh_token || ""
   });
 
-  return new Response(null, {
-    status: 302,
-    headers: {
-      Location: "/?view=pinterest",
-      "Set-Cookie": "pinterest_oauth_state=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0"
-    }
+  return redirectToPinterestAdmin(request, {
+    status: "success",
+    message: "OAuth Pinterest completato. Account collegato correttamente."
   });
 }

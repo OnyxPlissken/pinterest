@@ -636,6 +636,33 @@ export default function HomePage() {
     window.localStorage.setItem(LOG_STORAGE_KEY, JSON.stringify(operationLogs));
   }, [operationLogs]);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const requestedView = params.get("view");
+    const oauthStatus = params.get("pinterestOAuth");
+    const oauthMessage = params.get("message");
+
+    if (BASE_VIEWS.some((item) => item.key === requestedView)) {
+      setActiveView(requestedView);
+    }
+
+    if (oauthStatus) {
+      setPinterestNotice({
+        type: oauthStatus === "success" ? "success" : "error",
+        text:
+          oauthMessage ||
+          (oauthStatus === "success"
+            ? "OAuth Pinterest completato."
+            : "OAuth Pinterest non completato.")
+      });
+
+      const cleanUrl = new URL(window.location.href);
+      cleanUrl.searchParams.delete("pinterestOAuth");
+      cleanUrl.searchParams.delete("message");
+      window.history.replaceState({}, "", `${cleanUrl.pathname}${cleanUrl.search}`);
+    }
+  }, []);
+
   async function refreshSystemState() {
     const [systemPayload, explorerPayload] = await Promise.all([
       fetchJson("/api/system"),
