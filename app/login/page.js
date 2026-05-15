@@ -160,6 +160,10 @@ export default function LoginPage() {
               <span>{loading ? "Accesso..." : "Accedi"}</span>
             </button>
           </form>
+
+          <div className="auth-links">
+            <a href="/privacy">Privacy Policy</a>
+          </div>
         </div>
       </section>
     </main>

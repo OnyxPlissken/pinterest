@@ -5197,7 +5197,7 @@ export default function HomePage() {
           <footer className="footer-note">
             Ultima operazione completata: <strong>{latestSuccessLog.action}</strong> su{" "}
             <strong>{formatPaths(latestSuccessLog.paths)}</strong> il{" "}
-            {formatDateTime(latestSuccessLog.timestamp)}.
+            {formatDateTime(latestSuccessLog.timestamp)}. <a href="/privacy">Privacy Policy</a>
           </footer>
         ) : null}
       </section>

@@ -55,7 +55,7 @@ export async function GET(request) {
         "/api/settings",
         "/api/settings/diagnostics"
       ],
-      publicRoutes: ["/login", "/media", "/api/health"]
+      publicRoutes: ["/login", "/privacy", "/media", "/api/health"]
     },
     settings: {
       appName: adminState.settings?.appName || "Pinterest Assets Management",

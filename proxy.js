@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { SESSION_COOKIE_NAME, verifySessionToken } from "./lib/session";
 
-const PUBLIC_ROUTES = new Set(["/api/health", "/api/auth/login"]);
+const PUBLIC_ROUTES = new Set(["/api/health", "/api/auth/login", "/privacy"]);
 
 function isPublicRoute(pathname) {
   return PUBLIC_ROUTES.has(pathname) || pathname.startsWith("/media");
