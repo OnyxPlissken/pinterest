@@ -1,7 +1,7 @@
 export const metadata = {
-  title: "Privacy Policy | ISAIA SharePoint Pin Manager",
+  title: "Privacy Policy | ISAIA Pin Manager",
   description:
-    "Privacy Policy for ISAIA SharePoint Pin Manager and its Pinterest API integration."
+    "Privacy Policy for ISAIA Pin Manager and its Pinterest API integration."
 };
 
 export default function PrivacyPage() {
@@ -15,7 +15,7 @@ export default function PrivacyPage() {
             </div>
             <div>
               <div className="legal-kicker">Privacy Policy</div>
-              <h1>ISAIA SharePoint Pin Manager</h1>
+              <h1>ISAIA Pin Manager</h1>
               <p className="legal-updated">Last updated: May 15, 2026</p>
             </div>
           </div>
@@ -32,7 +32,7 @@ export default function PrivacyPage() {
         </header>
 
         <p className="legal-intro">
-          ISAIA SharePoint Pin Manager is an internal web application used by
+          ISAIA Pin Manager is an internal web application used by
           authorized ISAIA personnel to prepare, publish, reconcile, and manage
           ISAIA-owned visual assets from Microsoft SharePoint on the connected ISAIA
           Pinterest account. This Privacy Policy explains how the application handles

@@ -13,7 +13,7 @@ const jetBrainsMono = JetBrains_Mono({
 });
 
 export const metadata = {
-  title: "ISAIA SharePoint Pin Manager",
+  title: "ISAIA Pin Manager",
   description: "Dashboard operativa per esplorare SharePoint, vedere l'anteprima e gestire i Pin ISAIA."
 };
 

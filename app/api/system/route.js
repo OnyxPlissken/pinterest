@@ -58,7 +58,7 @@ export async function GET(request) {
       publicRoutes: ["/login", "/privacy", "/media", "/assets", "/api/health"]
     },
     settings: {
-      appName: adminState.settings?.appName || "ISAIA SharePoint Pin Manager",
+      appName: adminState.settings?.appName || "ISAIA Pin Manager",
       sharePointUrl: `https://${process.env.SHAREPOINT_HOSTNAME || "isaia.sharepoint.com"}${process.env.SHAREPOINT_SITE_PATH || "/sites/branding"}`,
       library: adminState.settings?.sharePoint?.driveName || "",
       baseFolder: adminState.settings?.sharePoint?.baseFolder || "",
