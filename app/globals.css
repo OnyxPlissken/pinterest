@@ -1952,6 +1952,184 @@ svg {
   justify-content: center;
 }
 
+/* Desktop readability pass: keep the dense layout, but avoid 10-11px operational text. */
+body {
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+svg {
+  width: 15px;
+  height: 15px;
+}
+
+.topbar-kicker,
+.meta-label,
+.meta-user span,
+.summary-item span,
+.setting-card span,
+.info-card span,
+.field span,
+.pin-search span,
+.preview-info-card span,
+.column-head span,
+.log-table th,
+.legal-kicker,
+.legal-updated,
+.user-copy span,
+.user-row-meta small,
+.brand-subtitle {
+  font-size: 11px;
+}
+
+.brand-mark,
+.brand-title,
+.meta-block strong,
+.meta-user strong,
+.hero-path strong,
+.summary-item strong,
+.setting-card strong,
+.info-card strong,
+.panel-head p,
+.log-card p,
+.preview-card p,
+.field-note,
+.csv-assist-row small,
+.decision-option small,
+.direct-import-toggle small,
+.bulk-edit-toggle,
+.notice,
+.selector-head p,
+.check-row span,
+.row-main strong,
+.file-row strong,
+.row-main small,
+.file-row small,
+.log-mini-grid,
+.preview-meta,
+.compose-box,
+.preview-info-card strong,
+.empty-preview,
+.empty-block,
+.boot-state,
+.breadcrumb,
+.pinterest-board-row strong,
+.pin-meta strong,
+.pinterest-board-row small,
+.pin-meta span,
+.pin-meta small,
+.pin-empty-image,
+.pin-check span,
+.log-table th,
+.log-table td,
+.footer-note,
+.auth-links,
+.compliance-strip span,
+.compliance-links strong,
+.user-avatar,
+.user-copy strong,
+.auth-copy p,
+.auth-bullet strong {
+  font-size: 12px;
+}
+
+.live-badge,
+.tag,
+.status-pill,
+.file-badge,
+.selected-chip,
+.panel-button,
+.primary-button,
+.secondary-button,
+.inline-link-button,
+.sidebar-link,
+.select-field,
+.textarea-field,
+.direct-import-toggle,
+.decision-option,
+.pinterest-board-row,
+.pin-drawer-body,
+.toggle-line {
+  font-size: 13px;
+}
+
+.select-field {
+  min-height: 46px;
+  padding-inline: 13px;
+}
+
+.textarea-field {
+  padding: 13px;
+}
+
+.icon-button,
+.panel-button,
+.secondary-button,
+.breadcrumb {
+  padding: 10px 13px;
+}
+
+.primary-button,
+.secondary-button {
+  padding: 12px 15px;
+}
+
+.topbar h1 {
+  font-size: 24px;
+}
+
+.topbar-wordmark {
+  font-size: 24px;
+}
+
+.hero-title-row h2 {
+  font-size: 20px;
+}
+
+.hero-copy,
+.decision-modal-head p,
+.compose-label,
+.compliance-links span {
+  font-size: 13px;
+}
+
+.panel-head h3,
+.column-head h4,
+.pin-drawer-head h3 {
+  font-size: 17px;
+}
+
+.selector-head h4,
+.check-group-title,
+.editor-block-head h4 {
+  font-size: 14px;
+}
+
+.decision-modal-head h3 {
+  font-size: 22px;
+}
+
+.legal-card h1 {
+  font-size: 30px;
+}
+
+.legal-card h2 {
+  font-size: 17px;
+}
+
+.legal-card p,
+.legal-list {
+  font-size: 14px;
+}
+
+.legal-back {
+  font-size: 13px;
+}
+
+.auth-copy h1 {
+  font-size: 32px;
+}
+
 @media (max-width: 1320px) {
   .content-grid,
   .two-column-grid,
