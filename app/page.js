@@ -47,6 +47,18 @@ const CSV_ASSIST_STRATEGIES = [
     description: "Non elimina nulla e non genera un CSV finale. Serve solo per vedere cosa succederebbe."
   }
 ];
+const RULE_SELECTION_MODE_OPTIONS = [
+  {
+    value: "filenameLook",
+    label: "LOOK dal nome file",
+    description: "Usa il numero LOOK presente nel nome e tiene solo la variante con numero finale piu basso."
+  },
+  {
+    value: "imageSequence",
+    label: "Ogni immagine = Look",
+    description: "Conta tutte le immagini valide della cartella finale e genera Look 1, Look 2, Look 3..."
+  }
+];
 const NATURAL_PIN_SORTER = new Intl.Collator("it-IT", {
   numeric: true,
   sensitivity: "base"
@@ -510,10 +522,18 @@ function buildRuleForm(rule) {
     descriptionPrefix: rule?.descriptionPrefix || "",
     linkUrl: rule?.linkUrl || "",
     thumbnailMode: rule?.thumbnailMode || "blank",
+    selectionMode: rule?.selectionMode || "filenameLook",
     active: rule?.active ?? true,
     isDefault: rule?.isDefault ?? false,
     usageDescription: rule?.usageDescription || rule?.notes || ""
   };
+}
+
+function getRuleSelectionModeDescription(selectionMode = "filenameLook") {
+  return (
+    RULE_SELECTION_MODE_OPTIONS.find((option) => option.value === selectionMode)?.description ||
+    RULE_SELECTION_MODE_OPTIONS[0].description
+  );
 }
 
 function buildSettingsForm(settings) {
@@ -2923,7 +2943,7 @@ export default function HomePage() {
                 </div>
                 <div className="summary-item">
                   <span>Criterio immagini</span>
-                  <strong>Per ogni LOOK resta il file con numero finale piu basso.</strong>
+                  <strong>{getRuleSelectionModeDescription(selectedRule?.selectionMode)}</strong>
                 </div>
               </div>
 
@@ -4233,7 +4253,7 @@ export default function HomePage() {
                           <span className={`status-pill ${rule.active ? "ok" : "error"}`}>
                             {rule.active ? "Attiva" : "Disattiva"}
                           </span>
-                          <small>{rule.isDefault ? "Predefinita" : rule.previewSection}</small>
+                          <small>{rule.isDefault ? "Predefinita" : rule.selectionModeLabel || rule.previewSection}</small>
                         </div>
                       </button>
                     ))}
@@ -4349,6 +4369,25 @@ export default function HomePage() {
                           <option value="level5">Nome livello 5</option>
                         </select>
                       </label>
+                      <label className="field">
+                        <span>Metodo immagini</span>
+                        <select
+                          className="select-field"
+                          value={createRuleForm.selectionMode}
+                          onChange={(event) =>
+                            setCreateRuleForm((current) => ({
+                              ...current,
+                              selectionMode: event.target.value
+                            }))
+                          }
+                        >
+                          {RULE_SELECTION_MODE_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
                     </div>
 
                     <div className="toggle-stack">
@@ -4393,6 +4432,10 @@ export default function HomePage() {
                         <div className="preview-info-card">
                           <span>Description</span>
                           <strong>{createRulePreview.description || "-"}</strong>
+                        </div>
+                        <div className="preview-info-card">
+                          <span>Criterio immagini</span>
+                          <strong>{getRuleSelectionModeDescription(createRuleForm.selectionMode)}</strong>
                         </div>
                       </div>
                     </div>
@@ -4500,6 +4543,25 @@ export default function HomePage() {
                               <option value="level5">Nome livello 5</option>
                             </select>
                           </label>
+                          <label className="field">
+                            <span>Metodo immagini</span>
+                            <select
+                              className="select-field"
+                              value={editRuleForm.selectionMode}
+                              onChange={(event) =>
+                                setEditRuleForm((current) => ({
+                                  ...current,
+                                  selectionMode: event.target.value
+                                }))
+                              }
+                            >
+                              {RULE_SELECTION_MODE_OPTIONS.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                  {option.label}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
                         </div>
 
                         <div className="toggle-stack">
@@ -4559,6 +4621,10 @@ export default function HomePage() {
                             <div className="preview-info-card">
                               <span>Description</span>
                               <strong>{editRulePreview.description || "-"}</strong>
+                            </div>
+                            <div className="preview-info-card">
+                              <span>Criterio immagini</span>
+                              <strong>{getRuleSelectionModeDescription(editRuleForm.selectionMode)}</strong>
                             </div>
                           </div>
                         </div>
