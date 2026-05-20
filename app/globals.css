@@ -120,6 +120,8 @@ svg {
   padding: 18px 14px;
   display: flex;
   flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
   background: color-mix(in srgb, var(--sidebar) 92%, transparent);
   border-right: 1px solid var(--line);
   backdrop-filter: blur(16px);
@@ -200,6 +202,7 @@ svg {
   padding: 16px 8px 0;
   display: grid;
   gap: 12px;
+  min-width: 0;
   border-top: 1px solid var(--line);
 }
 
@@ -228,23 +231,45 @@ svg {
 }
 
 .meta-user {
-  display: flex;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  grid-template-areas:
+    "avatar copy"
+    "actions actions";
   align-items: center;
   gap: 10px;
 }
 
 .meta-user-copy {
   min-width: 0;
-  flex: 1 1 auto;
+  grid-area: copy;
+  overflow: hidden;
+}
+
+.meta-user-copy strong,
+.meta-user-copy span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .meta-user-actions {
-  display: inline-flex;
+  grid-area: actions;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: center;
+  justify-content: stretch;
   gap: 6px;
 }
 
+.meta-user-actions .icon-button {
+  width: 100%;
+  min-width: 0;
+}
+
 .meta-avatar {
+  grid-area: avatar;
   width: 34px;
   height: 34px;
   display: grid;
