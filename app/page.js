@@ -51,6 +51,7 @@ const NATURAL_PIN_SORTER = new Intl.Collator("it-IT", {
   numeric: true,
   sensitivity: "base"
 });
+const LOOK_NUMBER_PATTERN = /(?:^|[^a-z0-9])look[\s_#-]*(\d+)(?=[^a-z0-9]|$)/i;
 const EMPTY_PIN_BULK_EDIT_FORM = {
   updateTitle: false,
   titleFind: "",
@@ -388,7 +389,60 @@ function getPinSortText(pin) {
   return pin?.title || pin?.description || pin?.id || "";
 }
 
-function comparePinsByName(first, second) {
+function normalizePinSortCandidate(value) {
+  const text = String(value || "").trim();
+  if (!text) {
+    return "";
+  }
+
+  try {
+    return decodeURIComponent(text).replace(/\+/g, " ");
+  } catch {
+    return text.replace(/\+/g, " ");
+  }
+}
+
+function extractLookNumber(value) {
+  const normalized = normalizePinSortCandidate(value);
+  const match = normalized.match(LOOK_NUMBER_PATTERN);
+  return match ? Number.parseInt(match[1], 10) : null;
+}
+
+function getPinLookNumber(pin) {
+  const candidates = [
+    pin?.title,
+    pin?.description,
+    pin?.link,
+    pin?.imageUrl,
+    pin?.url
+  ];
+
+  for (const candidate of candidates) {
+    const lookNumber = extractLookNumber(candidate);
+    if (Number.isInteger(lookNumber)) {
+      return lookNumber;
+    }
+  }
+
+  return null;
+}
+
+function comparePinsByLookNumber(first, second) {
+  const firstLookNumber = getPinLookNumber(first);
+  const secondLookNumber = getPinLookNumber(second);
+
+  if (firstLookNumber !== null || secondLookNumber !== null) {
+    if (firstLookNumber === null) {
+      return 1;
+    }
+    if (secondLookNumber === null) {
+      return -1;
+    }
+    if (firstLookNumber !== secondLookNumber) {
+      return firstLookNumber - secondLookNumber;
+    }
+  }
+
   return (
     NATURAL_PIN_SORTER.compare(getPinSortText(first), getPinSortText(second)) ||
     NATURAL_PIN_SORTER.compare(first?.id || "", second?.id || "")
@@ -2474,7 +2528,7 @@ export default function HomePage() {
   );
   const pinterestPinQueryNormalized = pinterestPinQuery.trim().toLowerCase();
   const sortedPinterestPins = useMemo(
-    () => [...pinterestPins].sort(comparePinsByName),
+    () => [...pinterestPins].sort(comparePinsByLookNumber),
     [pinterestPins]
   );
   const visiblePinterestPins = useMemo(
