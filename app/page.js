@@ -5,6 +5,7 @@ import { buildRulePreview } from "../lib/pinterest-format";
 
 const BASE_VIEWS = [
   { key: "azione", label: "Azione", icon: "play" },
+  { key: "howto", label: "How to", icon: "shield" },
   { key: "pinterest", label: "Pinterest", icon: "image" },
   { key: "explorer", label: "Archivio", icon: "folder" },
   { key: "log", label: "Storico", icon: "log" },
@@ -3254,6 +3255,171 @@ export default function HomePage() {
               )}
             </section>
           </>
+        ) : null}
+
+        {activeView === "howto" ? (
+          <section className="howto-page">
+            <section className="hero-panel compact">
+              <div>
+                <div className="hero-title-row">
+                  <h2>Procedura rapida Pinterest</h2>
+                  <span className="tag">SharePoint + Pinterest</span>
+                </div>
+                <p className="hero-copy">
+                  Usa questa pagina quando devi pubblicare una selezione: ti dice cosa controllare,
+                  quando fermarti e quale azione scegliere senza rileggere ogni volta le regole operative.
+                </p>
+              </div>
+              <div className="hero-inline">
+                <button className="primary-button" type="button" onClick={() => setActiveView("azione")}>
+                  <Glyph name="play" />
+                  <span>Vai alla selezione</span>
+                </button>
+                <button className="secondary-button" type="button" onClick={() => setActiveView("pinterest")}>
+                  <Glyph name="image" />
+                  <span>Apri Pinterest</span>
+                </button>
+              </div>
+            </section>
+
+            <article className="panel">
+              <div className="panel-head">
+                <div>
+                  <h3>Flusso consigliato</h3>
+                  <p>Segui questi passaggi in ordine. Se un controllo non torna, fermati prima di generare CSV o sync.</p>
+                </div>
+              </div>
+
+              <div className="howto-steps">
+                <div className="howto-step">
+                  <span className="howto-step-number">1</span>
+                  <div>
+                    <strong>Scegli regola e contenuti</strong>
+                    <p>In Azione seleziona stagione, linea creativa, cartella finale ed eventuale sottocartella contenuto. La regola decide come vengono nominati e contati i Look.</p>
+                  </div>
+                </div>
+                <div className="howto-step">
+                  <span className="howto-step-number">2</span>
+                  <div>
+                    <strong>Carica anteprima</strong>
+                    <p>Controlla immagini, titoli, descrizioni, link, bacheca e sezione. L&apos;anteprima serve a vedere il risultato finale, non a decidere la strategia di pubblicazione.</p>
+                  </div>
+                </div>
+                <div className="howto-step">
+                  <span className="howto-step-number">3</span>
+                  <div>
+                    <strong>Apri Genera CSV</strong>
+                    <p>Il popup &quot;Scegli cosa fare&quot; confronta la selezione con registro interno e Pinterest: nuovi Pin, modificati, saltati, bacheche o sezioni mancanti.</p>
+                  </div>
+                </div>
+                <div className="howto-step">
+                  <span className="howto-step-number">4</span>
+                  <div>
+                    <strong>Pubblica solo quando i numeri tornano</strong>
+                    <p>Se i conteggi non hanno senso, usa &quot;Controlla soltanto&quot; o torna alla selezione. Se mancano contenitori, creali prima via app quando possibile.</p>
+                  </div>
+                </div>
+              </div>
+            </article>
+
+            <section className="two-column-grid">
+              <article className="panel">
+                <div className="panel-head">
+                  <div>
+                    <h3>Anteprima</h3>
+                    <p>Serve a verificare il contenuto visivo ed editoriale prima di qualunque azione.</p>
+                  </div>
+                </div>
+                <div className="howto-checklist">
+                  <div><Glyph name="check" /><span>Immagine corretta e orientata bene.</span></div>
+                  <div><Glyph name="check" /><span>Titolo e descrizione leggibili.</span></div>
+                  <div><Glyph name="check" /><span>Link vuoto o coerente con le impostazioni.</span></div>
+                  <div><Glyph name="check" /><span>Bacheca e sezione risultano quelle previste.</span></div>
+                  <div><Glyph name="check" /><span>Numero Look ordinato come ti aspetti.</span></div>
+                </div>
+              </article>
+
+              <article className="panel">
+                <div className="panel-head">
+                  <div>
+                    <h3>Controllo prima di pubblicare</h3>
+                    <p>Non duplica l&apos;anteprima: decide cosa fare con i Pin gia pubblicati o gia esportati.</p>
+                  </div>
+                </div>
+                <div className="howto-checklist">
+                  <div><Glyph name="check" /><span><strong>Nel CSV</strong>: righe che verranno davvero generate.</span></div>
+                  <div><Glyph name="check" /><span><strong>Nuovi</strong>: Pin senza Pin ID, quindi pubblicabili.</span></div>
+                  <div><Glyph name="check" /><span><strong>Da sostituire</strong>: contenuti cambiati rispetto al registro.</span></div>
+                  <div><Glyph name="check" /><span><strong>Saltati</strong>: gia tracciati e invariati.</span></div>
+                  <div><Glyph name="check" /><span><strong>Mancanti</strong>: bacheche o sezioni da creare prima dell&apos;import.</span></div>
+                </div>
+              </article>
+            </section>
+
+            <article className="panel">
+              <div className="panel-head">
+                <div>
+                  <h3>Quale opzione scegliere</h3>
+                  <p>Usa queste regole pratiche quando compare il popup di generazione CSV.</p>
+                </div>
+              </div>
+
+              <div className="howto-decision-grid">
+                <div className="howto-decision">
+                  <span className="tag soft">Normale</span>
+                  <strong>Crea solo i Pin nuovi</strong>
+                  <p>Usala quando vuoi evitare duplicati. I Pin gia identificati o invariati vengono saltati.</p>
+                </div>
+                <div className="howto-decision">
+                  <span className="tag soft">Aggiornamento</span>
+                  <strong>Sostituisci quelli modificati</strong>
+                  <p>Usala quando SharePoint ha immagini o dati cambiati. Elimina solo i vecchi Pin identificati.</p>
+                </div>
+                <div className="howto-decision">
+                  <span className="tag soft">Rifacimento</span>
+                  <strong>Rifai tutta la selezione</strong>
+                  <p>Usala solo per rigenerare una bacheca o sezione da zero. Prima controlla bene i conteggi.</p>
+                </div>
+                <div className="howto-decision">
+                  <span className="tag soft">Sicurezza</span>
+                  <strong>Controlla soltanto</strong>
+                  <p>Usala quando non sei sicura. Non genera CSV finale e non elimina nulla.</p>
+                </div>
+              </div>
+            </article>
+
+            <article className="panel">
+              <div className="panel-head">
+                <div>
+                  <h3>Quando fermarsi</h3>
+                  <p>Questi casi vanno risolti prima di importare il CSV o avviare sync.</p>
+                </div>
+              </div>
+
+              <div className="notice info">
+                Se il numero dei Pin nel CSV non corrisponde a quello che ti aspetti, non pubblicare. Torna alla selezione, ricarica anteprima e usa &quot;Controlla soltanto&quot;.
+              </div>
+
+              <div className="howto-warning-grid">
+                <div>
+                  <strong>Bacheca o sezione mancante</strong>
+                  <span>Crea i contenitori prima dell&apos;import, altrimenti Pinterest puo pubblicare fuori sezione.</span>
+                </div>
+                <div>
+                  <strong>Link non previsto</strong>
+                  <span>Controlla Impostazioni o Regola: link vuoto significa nessun link sul Pin.</span>
+                </div>
+                <div>
+                  <strong>Troppi Pin saltati</strong>
+                  <span>Potrebbero essere gia tracciati. Usa &quot;Controlla soltanto&quot; per capire prima di generare.</span>
+                </div>
+                <div>
+                  <strong>Errore pin_edit</strong>
+                  <span>Pinterest non consente modifiche dirette ai Pin. Per ora usa CSV e amministrazione per consultare/eliminare.</span>
+                </div>
+              </div>
+            </article>
+          </section>
         ) : null}
 
         {activeView === "pinterest" ? (

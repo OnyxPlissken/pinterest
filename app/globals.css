@@ -1320,6 +1320,109 @@ svg {
   background: color-mix(in srgb, var(--surface) 90%, transparent);
 }
 
+.howto-page {
+  display: grid;
+  gap: 14px;
+}
+
+.howto-steps,
+.howto-checklist,
+.howto-decision-grid,
+.howto-warning-grid {
+  margin-top: 16px;
+}
+
+.howto-steps {
+  display: grid;
+  gap: 10px;
+}
+
+.howto-step {
+  min-width: 0;
+  padding: 13px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-soft);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.howto-step-number {
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--accent-line);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 900;
+}
+
+.howto-step strong,
+.howto-decision strong,
+.howto-warning-grid strong {
+  display: block;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.howto-step p,
+.howto-decision p,
+.howto-warning-grid span {
+  display: block;
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+.howto-checklist {
+  display: grid;
+  gap: 9px;
+}
+
+.howto-checklist div {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 9px;
+  align-items: start;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.howto-checklist svg {
+  margin-top: 2px;
+  color: var(--success);
+}
+
+.howto-checklist strong {
+  color: var(--text);
+}
+
+.howto-decision-grid,
+.howto-warning-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.howto-decision,
+.howto-warning-grid div {
+  min-width: 0;
+  padding: 13px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-soft);
+}
+
+.howto-decision .tag {
+  margin-bottom: 10px;
+}
+
 .file-badge.image {
   color: var(--accent);
   border-color: var(--accent-line);
@@ -2164,6 +2267,11 @@ svg {
   .auth-frame {
     grid-template-columns: 1fr;
   }
+
+  .howto-decision-grid,
+  .howto-warning-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 980px) {
@@ -2187,7 +2295,9 @@ svg {
   .info-grid,
   .multi-grid,
   .user-detail-grid,
-  .preview-info-grid {
+  .preview-info-grid,
+  .howto-decision-grid,
+  .howto-warning-grid {
     grid-template-columns: 1fr;
   }
 }
