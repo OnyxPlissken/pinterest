@@ -627,6 +627,7 @@ export default function HomePage() {
   const [explorerData, setExplorerData] = useState(null);
   const [explorerQuery, setExplorerQuery] = useState("");
   const [preview, setPreview] = useState(null);
+  const [previewDetailItem, setPreviewDetailItem] = useState(null);
   const [result, setResult] = useState(null);
   const [csvAssist, setCsvAssist] = useState(null);
   const [csvAssistStrategy, setCsvAssistStrategy] = useState("newOnly");
@@ -1948,6 +1949,7 @@ export default function HomePage() {
     setActionNotice(null);
     setResult(null);
     setCsvAssist(null);
+    setPreviewDetailItem(null);
     csvAssistCacheRef.current.clear();
 
     try {
@@ -3205,47 +3207,21 @@ export default function HomePage() {
                   <div className="preview-grid">
                     {preview.previewItems.map((item) => (
                       <article className="preview-card" key={`${item.sourceSubPath}-${item.filename}`}>
-                        <div className="preview-image-wrap">
-                          <img className="preview-image" src={item.imageUrl} alt={item.title} />
-                        </div>
-
-                        <div className="preview-compose">
-                          <div className="compose-field">
-                            <span className="compose-label">Titolo</span>
-                            <div className="compose-box">{item.title}</div>
+                        <button
+                          className="preview-card-button"
+                          type="button"
+                          onClick={() => setPreviewDetailItem(item)}
+                        >
+                          <div className="preview-image-wrap">
+                            <img className="preview-image" src={item.imageUrl} alt={item.title} />
                           </div>
-                          <div className="compose-field">
-                            <span className="compose-label">Descrizione</span>
-                            <div className="compose-box compose-box-large">{item.description}</div>
+                          <div className="preview-card-copy">
+                            <strong>{item.title}</strong>
+                            <span>{item.section || "Nessuna sezione"}</span>
+                            <small>{item.board}</small>
+                            <small>{item.link || "Link vuoto"}</small>
                           </div>
-                          <div className="compose-field">
-                            <span className="compose-label">Link</span>
-                            <div className="compose-box">{item.link}</div>
-                          </div>
-                          <div className="compose-field">
-                            <span className="compose-label">Bacheca</span>
-                            <div className="compose-box">{item.board}</div>
-                          </div>
-
-                          <div className="preview-info-grid">
-                            <div className="preview-info-card">
-                              <span>Cartella immagini</span>
-                              <strong>{item.imageFolder}</strong>
-                            </div>
-                            <div className="preview-info-card">
-                              <span>Sezione</span>
-                              <strong>{item.section}</strong>
-                            </div>
-                            <div className="preview-info-card">
-                              <span>Origine selezione</span>
-                              <strong>{item.sourceSubPath}</strong>
-                            </div>
-                            <div className="preview-info-card">
-                              <span>Regola</span>
-                              <strong>{item.selectionRule}</strong>
-                            </div>
-                          </div>
-                        </div>
+                        </button>
                       </article>
                     ))}
                   </div>
@@ -3254,6 +3230,74 @@ export default function HomePage() {
                 <div className="empty-preview">Nessuna anteprima caricata.</div>
               )}
             </section>
+
+            {previewDetailItem ? (
+              <div className="pin-drawer-backdrop" role="presentation" onClick={() => setPreviewDetailItem(null)}>
+                <aside
+                  className="pin-drawer preview-detail-drawer"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-label="Dettaglio anteprima Pin"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  <div className="pin-drawer-head">
+                    <div>
+                      <span className="meta-label">Anteprima Pin</span>
+                      <h3>{previewDetailItem.title}</h3>
+                    </div>
+                    <button className="icon-button compact" type="button" onClick={() => setPreviewDetailItem(null)} title="Chiudi">
+                      <Glyph name="back" />
+                    </button>
+                  </div>
+
+                  <div className="pin-drawer-body">
+                    <img className="pin-drawer-image" src={previewDetailItem.imageUrl} alt={previewDetailItem.title} />
+
+                    <div className="compose-field">
+                      <span className="compose-label">Titolo</span>
+                      <div className="compose-box">{previewDetailItem.title}</div>
+                    </div>
+                    <div className="compose-field">
+                      <span className="compose-label">Descrizione</span>
+                      <div className="compose-box compose-box-large">{previewDetailItem.description}</div>
+                    </div>
+                    <div className="compose-field">
+                      <span className="compose-label">Link</span>
+                      <div className="compose-box">{previewDetailItem.link || "Link vuoto"}</div>
+                    </div>
+                    <div className="compose-field">
+                      <span className="compose-label">Bacheca</span>
+                      <div className="compose-box">{previewDetailItem.board}</div>
+                    </div>
+
+                    <div className="preview-info-grid">
+                      <div className="preview-info-card">
+                        <span>Cartella immagini</span>
+                        <strong>{previewDetailItem.imageFolder}</strong>
+                      </div>
+                      <div className="preview-info-card">
+                        <span>Sezione</span>
+                        <strong>{previewDetailItem.section || "Nessuna sezione"}</strong>
+                      </div>
+                      <div className="preview-info-card">
+                        <span>Origine selezione</span>
+                        <strong>{previewDetailItem.sourceSubPath}</strong>
+                      </div>
+                      <div className="preview-info-card">
+                        <span>Regola</span>
+                        <strong>{previewDetailItem.selectionRule}</strong>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pin-drawer-actions">
+                    <button className="secondary-button" type="button" onClick={() => setPreviewDetailItem(null)}>
+                      Chiudi
+                    </button>
+                  </div>
+                </aside>
+              </div>
+            ) : null}
           </>
         ) : null}
 

@@ -1141,35 +1141,85 @@ svg {
 
 .preview-grid {
   margin-top: 16px;
-  grid-template-columns: 1fr;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
 }
 
 .preview-card {
   overflow: hidden;
-  border-radius: 18px;
+  border-radius: 12px;
   border: 1px solid var(--line);
   background: color-mix(in srgb, var(--surface-alt) 98%, transparent);
+  min-width: 0;
+}
+
+.preview-card-button {
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
   display: grid;
-  grid-template-columns: minmax(220px, 320px) minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.preview-card-button:hover .preview-card-copy strong {
+  color: var(--accent);
 }
 
 .preview-image-wrap {
-  min-height: 420px;
+  aspect-ratio: 4 / 5;
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--surface-alt) 90%, transparent), color-mix(in srgb, var(--surface) 100%, transparent));
-  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
 }
 
 .preview-image {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
 }
 
-.preview-compose {
-  padding: 18px;
+.preview-card-copy {
+  min-width: 0;
+  padding: 11px;
   display: grid;
-  gap: 14px;
+  gap: 5px;
+  align-content: start;
+}
+
+.preview-card-copy strong,
+.preview-card-copy span,
+.preview-card-copy small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.preview-card-copy strong {
+  display: -webkit-box;
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.preview-card-copy span,
+.preview-card-copy small {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.preview-detail-drawer .pin-drawer-image {
+  max-height: 520px;
+  background: #ffffff;
 }
 
 .compose-field {
@@ -2392,12 +2442,7 @@ svg {
     grid-template-columns: 1fr;
   }
 
-  .preview-card {
-    grid-template-columns: 1fr;
-  }
-
   .preview-image-wrap {
-    min-height: 320px;
     border-right: 0;
     border-bottom: 1px solid var(--line);
   }
