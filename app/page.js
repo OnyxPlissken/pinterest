@@ -383,6 +383,19 @@ function getEditablePinPrivacy(value) {
   return String(value || "").toUpperCase() === "PUBLIC" ? "PUBLIC" : "PROTECTED";
 }
 
+function buildSyncMessage(summary = {}) {
+  return [
+    `${summary.created || 0} creati`,
+    `${summary.matched || 0} agganciati`,
+    `${summary.updated || 0} aggiornati`,
+    `${summary.relocated || 0} rinominati/spostati`,
+    `${summary.verified || 0} verificati`,
+    `${summary.replaced || 0} sostituiti`,
+    `${summary.deleted || 0} eliminati`,
+    `${summary.unchanged || 0} invariati`
+  ].join(", ");
+}
+
 function replaceBulkText(value, search, replacement) {
   const searchText = String(search ?? "");
   if (!searchText) {
@@ -633,6 +646,8 @@ export default function HomePage() {
   const [csvAssistStrategy, setCsvAssistStrategy] = useState("newOnly");
   const [csvAssistModalOpen, setCsvAssistModalOpen] = useState(false);
   const [csvAssistCreateContainers, setCsvAssistCreateContainers] = useState(true);
+  const [syncConfirm, setSyncConfirm] = useState(null);
+  const [syncBoardPrivacy, setSyncBoardPrivacy] = useState("SECRET");
   const [pinterestCreateModalOpen, setPinterestCreateModalOpen] = useState(false);
   const [pinterestRenameModal, setPinterestRenameModal] = useState("");
   const [pinterestCreateForm, setPinterestCreateForm] = useState({
@@ -2213,16 +2228,6 @@ export default function HomePage() {
     setActionNotice(null);
 
     try {
-      const buildSyncMessage = (summary = {}) => [
-        `${summary.created || 0} creati`,
-        `${summary.matched || 0} agganciati`,
-        `${summary.updated || 0} aggiornati`,
-        `${summary.relocated || 0} rinominati/spostati`,
-        `${summary.verified || 0} verificati`,
-        `${summary.replaced || 0} sostituiti`,
-        `${summary.deleted || 0} eliminati`,
-        `${summary.unchanged || 0} invariati`
-      ].join(", ");
       const requestBody = {
         subPaths: selectedGenerationPaths,
         ruleId: selectedRuleId
@@ -2257,50 +2262,14 @@ export default function HomePage() {
         return;
       }
 
-      const confirmed = window.confirm(
-        [
-          "Controllo prima del sync:",
-          dryRunMessage,
-          "",
-          "Procedere con la sincronizzazione reale su Pinterest?"
-        ].join("\n")
-      );
-
-      if (!confirmed) {
-        setActionNotice({
-          type: "info",
-          text: `Sync annullato dopo simulazione: ${dryRunMessage}`
-        });
-        return;
-      }
-
-      const payload = await fetchJson("/api/sync", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(requestBody)
+      setSyncConfirm({
+        requestBody,
+        dryRunPayload,
+        dryRunMessage
       });
-      const summary = payload.summary || {};
-      const message = buildSyncMessage(summary);
-      const auditDuplicates = payload.audit?.duplicatePinterestPins?.length || 0;
-
       setActionNotice({
-        type: summary.failed || auditDuplicates ? "error" : "success",
-        text: summary.failed
-          ? `Sync completato con ${summary.failed} errori: ${message}`
-          : auditDuplicates
-            ? `Sync completato, ma l'audit ha trovato ${auditDuplicates} duplicati Pinterest nella selezione: ${message}`
-          : `Sync Pinterest completato: ${message}`
-      });
-      appendLog({
-        action: "Sync Pinterest",
-        status: summary.failed || auditDuplicates ? "error" : "ok",
-        paths: payload.sourcePaths,
-        scannedCount: payload.scannedCount,
-        generatedCount: payload.generatedCount,
-        skippedCount: payload.skippedCount,
-        message
+        type: "info",
+        text: `Controllo completato: ${dryRunMessage}. Scegli la privacy prima di pubblicare.`
       });
     } catch (error) {
       const message =
@@ -2319,6 +2288,78 @@ export default function HomePage() {
     } finally {
       setSyncLoading(false);
     }
+  }
+
+  async function confirmSyncPinterest() {
+    if (!syncConfirm) {
+      return;
+    }
+
+    setSyncLoading(true);
+    setActionNotice(null);
+
+    try {
+      const payload = await fetchJson("/api/sync", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          ...syncConfirm.requestBody,
+          boardPrivacy: syncBoardPrivacy
+        })
+      });
+      const summary = payload.summary || {};
+      const message = buildSyncMessage(summary);
+      const auditDuplicates = payload.audit?.duplicatePinterestPins?.length || 0;
+      const privacyLabel = getPrivacyLabel(syncBoardPrivacy);
+
+      setActionNotice({
+        type: summary.failed || auditDuplicates ? "error" : "success",
+        text: summary.failed
+          ? `Sync completato con ${summary.failed} errori: ${message}`
+          : auditDuplicates
+            ? `Sync completato, ma l'audit ha trovato ${auditDuplicates} duplicati Pinterest nella selezione: ${message}`
+          : `Sync Pinterest completato. Privacy richiesta: ${privacyLabel}: ${message}`
+      });
+      appendLog({
+        action: "Sync Pinterest",
+        status: summary.failed || auditDuplicates ? "error" : "ok",
+        paths: payload.sourcePaths,
+        scannedCount: payload.scannedCount,
+        generatedCount: payload.generatedCount,
+        skippedCount: payload.skippedCount,
+        message: `${message} - Privacy richiesta: ${privacyLabel}`
+      });
+      setSyncConfirm(null);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Errore durante il sync Pinterest.";
+
+      setActionNotice({
+        type: "error",
+        text: message
+      });
+      appendLog({
+        action: "Sync Pinterest",
+        status: "error",
+        paths: syncConfirm.dryRunPayload?.sourcePaths || [...selectedGenerationPaths],
+        message
+      });
+    } finally {
+      setSyncLoading(false);
+    }
+  }
+
+  function cancelSyncPinterest() {
+    const dryRunMessage = syncConfirm?.dryRunMessage || "";
+    setSyncConfirm(null);
+    setActionNotice({
+      type: "info",
+      text: dryRunMessage
+        ? `Sync annullato dopo simulazione: ${dryRunMessage}`
+        : "Sync annullato."
+    });
   }
 
   function downloadCsv() {
@@ -3285,6 +3326,70 @@ export default function HomePage() {
               </div>
             ) : null}
 
+            {syncConfirm ? (
+              <div className="modal-backdrop" role="presentation" onClick={cancelSyncPinterest}>
+                <section className="decision-modal compact-modal" role="dialog" aria-modal="true" aria-label="Conferma sync Pinterest" onClick={(event) => event.stopPropagation()}>
+                  <div className="decision-modal-head">
+                    <div>
+                      <span className="meta-label">Sync Pinterest</span>
+                      <h3>Privacy prima di pubblicare</h3>
+                      <p>La simulazione e completata. Scegli la privacy da usare per le bacheche create dal sync. Le bacheche gia esistenti mantengono la privacy impostata in Amministrazione Pinterest.</p>
+                    </div>
+                    <button className="icon-button compact" type="button" onClick={cancelSyncPinterest} disabled={syncLoading}>
+                      <Glyph name="back" />
+                    </button>
+                  </div>
+
+                  <div className="decision-modal-body single-column">
+                    <div className="preview-summary-row compact">
+                      <div className="summary-item">
+                        <span>Da creare</span>
+                        <strong>{syncConfirm.dryRunPayload?.summary?.created || 0}</strong>
+                      </div>
+                      <div className="summary-item">
+                        <span>Da sostituire</span>
+                        <strong>{syncConfirm.dryRunPayload?.summary?.replaced || 0}</strong>
+                      </div>
+                      <div className="summary-item">
+                        <span>Invariati</span>
+                        <strong>{syncConfirm.dryRunPayload?.summary?.unchanged || 0}</strong>
+                      </div>
+                      <div className="summary-item">
+                        <span>Riepilogo</span>
+                        <strong>{syncConfirm.dryRunMessage}</strong>
+                      </div>
+                    </div>
+
+                    <label className="field">
+                      <span>Privacy di pubblicazione</span>
+                      <select
+                        className="select-field"
+                        value={syncBoardPrivacy}
+                        onChange={(event) => setSyncBoardPrivacy(event.target.value)}
+                        disabled={syncLoading}
+                      >
+                        {BOARD_PRIVACY_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+
+                  <div className="decision-modal-actions">
+                    <button className="secondary-button" type="button" onClick={cancelSyncPinterest} disabled={syncLoading}>
+                      Annulla
+                    </button>
+                    <button className="primary-button" type="button" onClick={confirmSyncPinterest} disabled={syncLoading}>
+                      <Glyph name="check" />
+                      <span>{syncLoading ? "Sincronizzo..." : "Conferma sync"}</span>
+                    </button>
+                  </div>
+                </section>
+              </div>
+            ) : null}
+
             <section className="preview-panel panel">
               <div className="panel-head">
                 <div>
@@ -3318,23 +3423,19 @@ export default function HomePage() {
                     </div>
                   </div>
 
-                  <div className="preview-grid">
+                  <div className="pinterest-pin-grid preview-pin-grid">
                     {preview.previewItems.map((item) => (
-                      <article className="preview-card" key={`${item.sourceSubPath}-${item.filename}`}>
-                        <button
-                          className="preview-card-button"
-                          type="button"
-                          onClick={() => setPreviewDetailItem(item)}
-                        >
-                          <div className="preview-image-wrap">
-                            <img className="preview-image" src={item.imageUrl} alt={item.title} />
-                          </div>
-                          <div className="preview-card-copy">
-                            <strong>{item.title}</strong>
-                            <span>{item.section || "Nessuna sezione"}</span>
-                            <small>{item.board}</small>
-                            <small>{item.link || "Link vuoto"}</small>
-                          </div>
+                      <article className="pinterest-pin-card" key={`${item.sourceSubPath}-${item.filename}`}>
+                        <button className="pin-check preview-pin-title" type="button" onClick={() => setPreviewDetailItem(item)}>
+                          <span>{item.title || "Pin senza titolo"}</span>
+                        </button>
+                        <button className="pin-card-button" type="button" onClick={() => setPreviewDetailItem(item)}>
+                          <img src={item.imageUrl} alt={item.title} />
+                        </button>
+                        <button className="pin-meta" type="button" onClick={() => setPreviewDetailItem(item)}>
+                          <strong>{item.boardName || item.board}</strong>
+                          <span>{item.section || "Nessuna sezione"} · {item.look}</span>
+                          <small>{item.link || "Link vuoto"}</small>
                         </button>
                       </article>
                     ))}

@@ -1629,6 +1629,19 @@ svg {
   line-height: 1.4;
 }
 
+.preview-pin-title {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.preview-pin-title:hover span {
+  color: var(--accent);
+}
+
 .pin-meta {
   padding: 11px;
 }

@@ -26,6 +26,7 @@ export async function POST(request) {
       subPath: body?.subPath ?? "",
       ruleId: body?.ruleId ?? "",
       dryRun: body?.dryRun === true,
+      boardPrivacy: body?.boardPrivacy ?? body?.pinPrivacy ?? "PUBLIC",
       origin: request.nextUrl.origin
     });
 
