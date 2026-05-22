@@ -535,21 +535,6 @@ svg {
   color: var(--text);
 }
 
-.pinterest-admin-counters {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.pinterest-admin-counters .setting-card {
-  min-width: 0;
-}
-
-.pinterest-admin-counters .setting-card span {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .field-with-action {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -1526,6 +1511,24 @@ svg {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.settings-grid.pinterest-admin-counters {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.settings-grid.pinterest-admin-counters .setting-card {
+  min-width: 0;
+  padding: 12px;
+}
+
+.settings-grid.pinterest-admin-counters .setting-card span,
+.settings-grid.pinterest-admin-counters .setting-card strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .pinterest-tree,
 .pinterest-pin-grid {
   margin-top: 14px;
@@ -2394,6 +2397,10 @@ svg {
   .howto-warning-grid {
     grid-template-columns: 1fr;
   }
+
+  .settings-grid.pinterest-admin-counters {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 720px) {
@@ -2449,16 +2456,16 @@ svg {
     justify-content: center;
   }
 
-  .pinterest-admin-counters {
+  .settings-grid.pinterest-admin-counters {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 8px;
   }
 
-  .pinterest-admin-counters .setting-card {
+  .settings-grid.pinterest-admin-counters .setting-card {
     padding: 10px 8px;
   }
 
-  .pinterest-admin-counters .setting-card span {
+  .settings-grid.pinterest-admin-counters .setting-card span {
     font-size: 9px;
     letter-spacing: 0.04em;
   }
