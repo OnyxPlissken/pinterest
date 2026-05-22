@@ -2107,6 +2107,23 @@ export default function HomePage() {
         preflight = await loadCsvAssistPreflight(csvAssistStrategy, true);
       }
 
+      if (!preflight) {
+        setActionNotice({
+          type: "error",
+          text: "Generazione CSV bloccata: il controllo preliminare non e stato completato."
+        });
+        return;
+      }
+
+      const duplicatePins = preflight?.audit?.duplicatePinterestPins || [];
+      if (duplicatePins.length) {
+        setActionNotice({
+          type: "error",
+          text: `CSV bloccato: Pinterest contiene gia ${duplicatePins.length} duplicati nella selezione. Risolvi i duplicati da Amministrazione Pinterest prima di generare nuovi file.`
+        });
+        return;
+      }
+
       const deletable = preflight?.summary?.deletable || 0;
       if (["replaceChanged", "regenerateSelection"].includes(csvAssistStrategy) && deletable) {
         const confirmed = window.confirm(
@@ -2181,31 +2198,88 @@ export default function HomePage() {
     setActionNotice(null);
 
     try {
+      const buildSyncMessage = (summary = {}) => [
+        `${summary.created || 0} creati`,
+        `${summary.matched || 0} agganciati`,
+        `${summary.updated || 0} aggiornati`,
+        `${summary.relocated || 0} rinominati/spostati`,
+        `${summary.replaced || 0} sostituiti`,
+        `${summary.deleted || 0} eliminati`,
+        `${summary.unchanged || 0} invariati`
+      ].join(", ");
+      const requestBody = {
+        subPaths: selectedGenerationPaths,
+        ruleId: selectedRuleId
+      };
+      const dryRunPayload = await fetchJson("/api/sync", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ ...requestBody, dryRun: true })
+      });
+      const dryRunSummary = dryRunPayload.summary || {};
+      const duplicatePins = dryRunPayload.audit?.duplicatePinterestPins || [];
+      const dryRunMessage = buildSyncMessage(dryRunSummary);
+
+      if (dryRunSummary.failed || duplicatePins.length) {
+        setActionNotice({
+          type: "error",
+          text: duplicatePins.length
+            ? `Sync bloccato: Pinterest contiene gia ${duplicatePins.length} duplicati nella selezione. Risolvi i duplicati da Amministrazione Pinterest prima di sincronizzare.`
+            : `Sync bloccato dalla simulazione: ${dryRunMessage}`
+        });
+        appendLog({
+          action: "Sync Pinterest",
+          status: "error",
+          paths: dryRunPayload.sourcePaths,
+          scannedCount: dryRunPayload.scannedCount,
+          generatedCount: dryRunPayload.generatedCount,
+          skippedCount: dryRunPayload.skippedCount,
+          message: dryRunMessage
+        });
+        return;
+      }
+
+      const confirmed = window.confirm(
+        [
+          "Controllo prima del sync:",
+          dryRunMessage,
+          "",
+          "Procedere con la sincronizzazione reale su Pinterest?"
+        ].join("\n")
+      );
+
+      if (!confirmed) {
+        setActionNotice({
+          type: "info",
+          text: `Sync annullato dopo simulazione: ${dryRunMessage}`
+        });
+        return;
+      }
+
       const payload = await fetchJson("/api/sync", {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({ subPaths: selectedGenerationPaths, ruleId: selectedRuleId })
+        body: JSON.stringify(requestBody)
       });
       const summary = payload.summary || {};
-      const message = [
-        `${summary.created || 0} creati`,
-        `${summary.updated || 0} aggiornati`,
-        `${summary.replaced || 0} sostituiti`,
-        `${summary.deleted || 0} eliminati`,
-        `${summary.unchanged || 0} invariati`
-      ].join(", ");
+      const message = buildSyncMessage(summary);
+      const auditDuplicates = payload.audit?.duplicatePinterestPins?.length || 0;
 
       setActionNotice({
-        type: summary.failed ? "error" : "success",
+        type: summary.failed || auditDuplicates ? "error" : "success",
         text: summary.failed
           ? `Sync completato con ${summary.failed} errori: ${message}`
+          : auditDuplicates
+            ? `Sync completato, ma l'audit ha trovato ${auditDuplicates} duplicati Pinterest nella selezione: ${message}`
           : `Sync Pinterest completato: ${message}`
       });
       appendLog({
         action: "Sync Pinterest",
-        status: summary.failed ? "error" : "ok",
+        status: summary.failed || auditDuplicates ? "error" : "ok",
         paths: payload.sourcePaths,
         scannedCount: payload.scannedCount,
         generatedCount: payload.generatedCount,
@@ -3094,6 +3168,10 @@ export default function HomePage() {
                           <strong>{csvAssist?.summary?.changed || 0}</strong>
                         </div>
                         <div className="summary-item">
+                          <span>Rinominati/spostati</span>
+                          <strong>{csvAssist?.summary?.relocated || 0}</strong>
+                        </div>
+                        <div className="summary-item">
                           <span>Bacheche mancanti</span>
                           <strong>{csvAssist?.containers?.missingBoards?.length || 0}</strong>
                         </div>
@@ -3106,6 +3184,10 @@ export default function HomePage() {
                       {csvAssist?.summary?.deletable ? (
                         <div className="notice error">
                           Questa scelta eliminera {csvAssist.summary.deletable} Pin gia identificati su Pinterest. I Pin cancellati non si recuperano.
+                        </div>
+                      ) : csvAssist?.audit?.duplicatePinterestPins?.length ? (
+                        <div className="notice error">
+                          Pinterest contiene gia {csvAssist.audit.duplicatePinterestPins.length} duplicati nella selezione. Risolvi i duplicati da Amministrazione Pinterest prima di generare nuovi file.
                         </div>
                       ) : (
                         <div className="notice success">
