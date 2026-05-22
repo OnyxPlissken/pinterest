@@ -1529,6 +1529,10 @@ svg {
   white-space: nowrap;
 }
 
+.settings-grid.pinterest-admin-counters + .empty-block {
+  margin-top: 14px;
+}
+
 .pinterest-tree,
 .pinterest-pin-grid {
   margin-top: 14px;
