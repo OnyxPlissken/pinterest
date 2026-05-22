@@ -659,6 +659,7 @@ export default function HomePage() {
   const [selectedPinterestPinIds, setSelectedPinterestPinIds] = useState([]);
   const [pinterestBoardNameDraft, setPinterestBoardNameDraft] = useState("");
   const [pinterestSectionNameDraft, setPinterestSectionNameDraft] = useState("");
+  const [pinterestBoardPrivacyDraft, setPinterestBoardPrivacyDraft] = useState("SECRET");
   const [pinterestPinQuery, setPinterestPinQuery] = useState("");
   const [pinterestPinEditRestricted, setPinterestPinEditRestricted] = useState(false);
   const [editingPinterestPinId, setEditingPinterestPinId] = useState("");
@@ -1139,6 +1140,7 @@ export default function HomePage() {
   useEffect(() => {
     const selectedBoard = pinterestTree.boards.find((board) => board.id === selectedPinterestBoardId);
     setPinterestBoardNameDraft(selectedBoard?.name || "");
+    setPinterestBoardPrivacyDraft(getEditableBoardPrivacy(selectedBoard?.privacy));
   }, [pinterestTree.boards, selectedPinterestBoardId]);
 
   useEffect(() => {
@@ -1325,58 +1327,10 @@ export default function HomePage() {
     refreshPinterestPins(selectedPinterestBoardId, sectionId);
   }
 
-  async function updateSelectedPinterestBoardPrivacy(event) {
-    const privacy = event.target.value;
-    const boardId = selectedPinterestBoard?.id;
-
-    if (!boardId) {
-      return;
-    }
-
-    setPinterestActionLoading(true);
-    setPinterestNotice(null);
-
-    try {
-      await fetchJson("/api/pinterest-admin", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          action: "updateBoardPrivacy",
-          boardId,
-          privacy
-        })
-      });
-
-      setPinterestTree((current) => ({
-        ...current,
-        boards: current.boards.map((board) =>
-          board.id === boardId ? { ...board, privacy } : board
-        )
-      }));
-      setPinterestPins((current) =>
-        current.map((pin) => (pin.boardId === boardId ? { ...pin, boardPrivacy: privacy } : pin))
-      );
-      setPinterestNotice({
-        type: "success",
-        text: "Privacy bacheca aggiornata."
-      });
-      await refreshPinterestTree(true);
-      await refreshPinterestPins(boardId, selectedPinterestSectionId);
-    } catch (error) {
-      setPinterestNotice({
-        type: "error",
-        text: error instanceof Error ? error.message : "Privacy bacheca non aggiornata."
-      });
-    } finally {
-      setPinterestActionLoading(false);
-    }
-  }
-
   async function updateSelectedPinterestBoardName() {
     const boardId = selectedPinterestBoard?.id;
     const name = pinterestBoardNameDraft.trim();
+    const privacy = getEditableBoardPrivacy(pinterestBoardPrivacyDraft);
 
     if (!boardId) {
       return;
@@ -1402,14 +1356,15 @@ export default function HomePage() {
         body: JSON.stringify({
           action: "updateBoard",
           boardId,
-          name
+          name,
+          privacy
         })
       });
 
       setPinterestTree((current) => ({
         ...current,
         boards: current.boards.map((board) =>
-          board.id === boardId ? { ...board, name } : board
+          board.id === boardId ? { ...board, name, privacy } : board
         ),
         sectionsByBoard: {
           ...current.sectionsByBoard,
@@ -1420,11 +1375,11 @@ export default function HomePage() {
         }
       }));
       setPinterestPins((current) =>
-        current.map((pin) => (pin.boardId === boardId ? { ...pin, boardName: name } : pin))
+        current.map((pin) => (pin.boardId === boardId ? { ...pin, boardName: name, boardPrivacy: privacy } : pin))
       );
       setPinterestNotice({
         type: "success",
-        text: "Bacheca rinominata."
+        text: "Bacheca aggiornata."
       });
       await refreshPinterestTree(true);
       await refreshPinterestPins(boardId, selectedPinterestSectionId);
@@ -1443,6 +1398,9 @@ export default function HomePage() {
     const boardId = selectedPinterestBoard?.id;
     const sectionId = selectedPinterestSection?.id;
     const name = pinterestSectionNameDraft.trim();
+    const privacy = getEditableBoardPrivacy(pinterestBoardPrivacyDraft);
+    const privacyChanged = privacy !== getEditableBoardPrivacy(selectedPinterestBoard?.privacy);
+    const sectionNameChanged = name !== selectedPinterestSection?.name;
 
     if (!boardId || !sectionId) {
       setPinterestNotice({
@@ -1464,21 +1422,40 @@ export default function HomePage() {
     setPinterestNotice(null);
 
     try {
-      await fetchJson("/api/pinterest-admin", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          action: "updateSection",
-          boardId,
-          sectionId,
-          name
-        })
-      });
+      if (sectionNameChanged) {
+        await fetchJson("/api/pinterest-admin", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            action: "updateSection",
+            boardId,
+            sectionId,
+            name
+          })
+        });
+      }
+
+      if (privacyChanged) {
+        await fetchJson("/api/pinterest-admin", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            action: "updateBoardPrivacy",
+            boardId,
+            privacy
+          })
+        });
+      }
 
       setPinterestTree((current) => ({
         ...current,
+        boards: current.boards.map((board) =>
+          board.id === boardId ? { ...board, privacy } : board
+        ),
         sectionsByBoard: {
           ...current.sectionsByBoard,
           [boardId]: (current.sectionsByBoard[boardId] || []).map((section) =>
@@ -1488,12 +1465,18 @@ export default function HomePage() {
       }));
       setPinterestPins((current) =>
         current.map((pin) =>
-          pin.boardSectionId === sectionId ? { ...pin, sectionName: name } : pin
+          pin.boardId === boardId
+            ? {
+                ...pin,
+                boardPrivacy: privacy,
+                sectionName: pin.boardSectionId === sectionId ? name : pin.sectionName
+              }
+            : pin
         )
       );
       setPinterestNotice({
         type: "success",
-        text: "Sezione rinominata."
+        text: "Sezione aggiornata."
       });
       await refreshPinterestTree(true);
       await refreshPinterestPins(boardId, sectionId);
@@ -1519,6 +1502,7 @@ export default function HomePage() {
       }
 
       setPinterestSectionNameDraft(selectedPinterestSection.name || "");
+      setPinterestBoardPrivacyDraft(getEditableBoardPrivacy(selectedPinterestBoard?.privacy));
       setPinterestRenameModal("section");
       return;
     }
@@ -1532,6 +1516,7 @@ export default function HomePage() {
     }
 
     setPinterestBoardNameDraft(selectedPinterestBoard.name || "");
+    setPinterestBoardPrivacyDraft(getEditableBoardPrivacy(selectedPinterestBoard.privacy));
     setPinterestRenameModal("board");
   }
 
@@ -2646,6 +2631,22 @@ export default function HomePage() {
     () => collectSections(pinterestTree.sectionsByBoard),
     [pinterestTree.sectionsByBoard]
   );
+  const selectedPinterestBoardPrivacy = getEditableBoardPrivacy(selectedPinterestBoard?.privacy);
+  const pinterestRenameIsSection = pinterestRenameModal === "section";
+  const pinterestRenameDraftName = pinterestRenameIsSection
+    ? pinterestSectionNameDraft
+    : pinterestBoardNameDraft;
+  const pinterestRenameOriginalName = pinterestRenameIsSection
+    ? selectedPinterestSection?.name || ""
+    : selectedPinterestBoard?.name || "";
+  const pinterestRenameCanSave =
+    Boolean(pinterestRenameModal) &&
+    !pinterestActionLoading &&
+    Boolean(selectedPinterestBoard) &&
+    (!pinterestRenameIsSection || Boolean(selectedPinterestSection)) &&
+    Boolean(pinterestRenameDraftName.trim()) &&
+    (pinterestRenameDraftName.trim() !== pinterestRenameOriginalName ||
+      pinterestBoardPrivacyDraft !== selectedPinterestBoardPrivacy);
   const editingPinterestPin = useMemo(
     () => pinterestPins.find((pin) => pin.id === editingPinterestPinId) || null,
     [editingPinterestPinId, pinterestPins]
@@ -3681,25 +3682,6 @@ export default function HomePage() {
                   <strong>{allPinterestSections.length}</strong>
                 </div>
                 <div className="setting-card">
-                  <span>Privacy bacheca</span>
-                  <select
-                    className="select-field setting-select"
-                    value={getEditableBoardPrivacy(selectedPinterestBoard?.privacy)}
-                    onChange={updateSelectedPinterestBoardPrivacy}
-                    disabled={!selectedPinterestBoard || pinterestActionLoading}
-                  >
-                    {BOARD_PRIVACY_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="setting-card">
-                  <span>Privacy sezione</span>
-                  <strong>{selectedPinterestSectionId ? `${getPrivacyLabel(selectedPinterestBoard?.privacy)} (eredita dalla bacheca)` : "Seleziona una sezione"}</strong>
-                </div>
-                <div className="setting-card">
                   <span>Pin caricati</span>
                   <strong>{pinterestPins.length}</strong>
                 </div>
@@ -3718,14 +3700,14 @@ export default function HomePage() {
                   className="decision-modal compact-modal"
                   role="dialog"
                   aria-modal="true"
-                  aria-label={pinterestRenameModal === "section" ? "Modifica nome sezione" : "Modifica nome bacheca"}
+                  aria-label={pinterestRenameIsSection ? "Modifica sezione" : "Modifica bacheca"}
                   onClick={(event) => event.stopPropagation()}
                 >
                   <div className="decision-modal-head">
                     <div>
                       <span className="meta-label">Amministrazione Pinterest</span>
-                      <h3>{pinterestRenameModal === "section" ? "Modifica nome sezione" : "Modifica nome bacheca"}</h3>
-                      <p>Salva il nuovo nome; al termine ricarichiamo i dati Pinterest aggiornati.</p>
+                      <h3>{pinterestRenameIsSection ? "Modifica sezione" : "Modifica bacheca"}</h3>
+                      <p>{pinterestRenameIsSection ? "La privacy della sezione segue quella della bacheca: cambiandola aggiorni anche la bacheca collegata." : "Modifica nome e privacy della bacheca selezionata."}</p>
                     </div>
                     <button className="icon-button compact" type="button" onClick={() => setPinterestRenameModal("")}>
                       <Glyph name="back" />
@@ -3738,16 +3720,31 @@ export default function HomePage() {
                       <input
                         className="select-field"
                         type="text"
-                        value={pinterestRenameModal === "section" ? pinterestSectionNameDraft : pinterestBoardNameDraft}
+                        value={pinterestRenameDraftName}
                         onChange={(event) =>
-                          pinterestRenameModal === "section"
+                          pinterestRenameIsSection
                             ? setPinterestSectionNameDraft(event.target.value)
                             : setPinterestBoardNameDraft(event.target.value)
                         }
                         disabled={pinterestActionLoading}
-                        placeholder={pinterestRenameModal === "section" ? "Nome sezione" : "Nome bacheca"}
+                        placeholder={pinterestRenameIsSection ? "Nome sezione" : "Nome bacheca"}
                         autoFocus
                       />
+                    </label>
+                    <label className="field">
+                      <span>{pinterestRenameIsSection ? "Privacy sezione" : "Privacy bacheca"}</span>
+                      <select
+                        className="select-field"
+                        value={pinterestBoardPrivacyDraft}
+                        onChange={(event) => setPinterestBoardPrivacyDraft(event.target.value)}
+                        disabled={pinterestActionLoading || !selectedPinterestBoard}
+                      >
+                        {BOARD_PRIVACY_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
                     </label>
                   </div>
 
@@ -3758,17 +3755,8 @@ export default function HomePage() {
                     <button
                       className="primary-button"
                       type="button"
-                      onClick={pinterestRenameModal === "section" ? updateSelectedPinterestSectionName : updateSelectedPinterestBoardName}
-                      disabled={
-                        pinterestActionLoading ||
-                        (pinterestRenameModal === "section"
-                          ? !selectedPinterestSection ||
-                            !pinterestSectionNameDraft.trim() ||
-                            pinterestSectionNameDraft.trim() === selectedPinterestSection.name
-                          : !selectedPinterestBoard ||
-                            !pinterestBoardNameDraft.trim() ||
-                            pinterestBoardNameDraft.trim() === selectedPinterestBoard.name)
-                      }
+                      onClick={pinterestRenameIsSection ? updateSelectedPinterestSectionName : updateSelectedPinterestBoardName}
+                      disabled={!pinterestRenameCanSave}
                     >
                       <Glyph name="check" />
                       <span>{pinterestActionLoading ? "Salvo..." : "Salva"}</span>
