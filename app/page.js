@@ -2203,6 +2203,7 @@ export default function HomePage() {
         `${summary.matched || 0} agganciati`,
         `${summary.updated || 0} aggiornati`,
         `${summary.relocated || 0} rinominati/spostati`,
+        `${summary.verified || 0} verificati`,
         `${summary.replaced || 0} sostituiti`,
         `${summary.deleted || 0} eliminati`,
         `${summary.unchanged || 0} invariati`
