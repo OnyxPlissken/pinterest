@@ -3333,7 +3333,7 @@ export default function HomePage() {
                     <div>
                       <span className="meta-label">Sync Pinterest</span>
                       <h3>Privacy prima di pubblicare</h3>
-                      <p>La simulazione e completata. Scegli la privacy da usare per le bacheche create dal sync. Le bacheche gia esistenti mantengono la privacy impostata in Amministrazione Pinterest.</p>
+                      <p>La simulazione e completata. Scegli la privacy da usare solo per i nuovi contenuti senza storico. I Pin gia pubblicati mantengono la privacy che avevano su Pinterest.</p>
                     </div>
                     <button className="icon-button compact" type="button" onClick={cancelSyncPinterest} disabled={syncLoading}>
                       <Glyph name="back" />
@@ -3773,7 +3773,7 @@ export default function HomePage() {
                 </div>
               </div>
 
-              <div className="settings-grid">
+              <div className="settings-grid pinterest-admin-counters">
                 <div className="setting-card">
                   <span>Bacheche</span>
                   <strong>{pinterestTree.boards.length}</strong>

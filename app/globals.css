@@ -535,6 +535,21 @@ svg {
   color: var(--text);
 }
 
+.pinterest-admin-counters {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.pinterest-admin-counters .setting-card {
+  min-width: 0;
+}
+
+.pinterest-admin-counters .setting-card span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .field-with-action {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -2432,6 +2447,20 @@ svg {
 
   .pinterest-admin-actions .panel-button {
     justify-content: center;
+  }
+
+  .pinterest-admin-counters {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .pinterest-admin-counters .setting-card {
+    padding: 10px 8px;
+  }
+
+  .pinterest-admin-counters .setting-card span {
+    font-size: 9px;
+    letter-spacing: 0.04em;
   }
 
   .field-with-action {
