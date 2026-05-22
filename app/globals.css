@@ -535,6 +535,22 @@ svg {
   color: var(--text);
 }
 
+.field-with-action {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.field-with-action .field {
+  min-width: 0;
+}
+
+.field-action-button {
+  min-height: 44px;
+  padding: 10px 12px;
+}
+
 .inline-actions,
 .action-row,
 .preview-meta,
@@ -2402,6 +2418,14 @@ svg {
   }
 
   .pinterest-admin-actions .panel-button {
+    justify-content: center;
+  }
+
+  .field-with-action {
+    grid-template-columns: 1fr;
+  }
+
+  .field-action-button {
     justify-content: center;
   }
 

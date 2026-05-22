@@ -634,6 +634,7 @@ export default function HomePage() {
   const [csvAssistModalOpen, setCsvAssistModalOpen] = useState(false);
   const [csvAssistCreateContainers, setCsvAssistCreateContainers] = useState(true);
   const [pinterestCreateModalOpen, setPinterestCreateModalOpen] = useState(false);
+  const [pinterestRenameModal, setPinterestRenameModal] = useState("");
   const [pinterestCreateForm, setPinterestCreateForm] = useState({
     type: "board",
     name: "",
@@ -1427,6 +1428,7 @@ export default function HomePage() {
       });
       await refreshPinterestTree(true);
       await refreshPinterestPins(boardId, selectedPinterestSectionId);
+      setPinterestRenameModal("");
     } catch (error) {
       setPinterestNotice({
         type: "error",
@@ -1495,6 +1497,7 @@ export default function HomePage() {
       });
       await refreshPinterestTree(true);
       await refreshPinterestPins(boardId, sectionId);
+      setPinterestRenameModal("");
     } catch (error) {
       setPinterestNotice({
         type: "error",
@@ -1503,6 +1506,33 @@ export default function HomePage() {
     } finally {
       setPinterestActionLoading(false);
     }
+  }
+
+  function openPinterestRenameModal(type) {
+    if (type === "section") {
+      if (!selectedPinterestSection) {
+        setPinterestNotice({
+          type: "error",
+          text: "Seleziona una sezione da rinominare."
+        });
+        return;
+      }
+
+      setPinterestSectionNameDraft(selectedPinterestSection.name || "");
+      setPinterestRenameModal("section");
+      return;
+    }
+
+    if (!selectedPinterestBoard) {
+      setPinterestNotice({
+        type: "error",
+        text: "Seleziona una bacheca da rinominare."
+      });
+      return;
+    }
+
+    setPinterestBoardNameDraft(selectedPinterestBoard.name || "");
+    setPinterestRenameModal("board");
   }
 
   function openPinterestCreateModal(type = "board") {
@@ -3583,38 +3613,62 @@ export default function HomePage() {
               ) : null}
 
               <div className="form-grid">
-                <label className="field">
-                  <span>Bacheca origine</span>
-                  <select
-                    className="select-field"
-                    value={selectedPinterestBoardId}
-                    onChange={handlePinterestBoardChange}
-                    disabled={!pinterestTree.boards.length || pinterestLoading}
+                <div className="field-with-action">
+                  <label className="field">
+                    <span>Bacheca origine</span>
+                    <select
+                      className="select-field"
+                      value={selectedPinterestBoardId}
+                      onChange={handlePinterestBoardChange}
+                      disabled={!pinterestTree.boards.length || pinterestLoading}
+                    >
+                      <option value="">Seleziona bacheca</option>
+                      {pinterestTree.boards.map((board) => (
+                        <option key={board.id} value={board.id}>
+                          {board.name} - {getPrivacyLabel(board.privacy)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <button
+                    className="secondary-button field-action-button"
+                    type="button"
+                    onClick={() => openPinterestRenameModal("board")}
+                    disabled={!selectedPinterestBoard || pinterestActionLoading}
+                    aria-label="Modifica nome bacheca"
                   >
-                    <option value="">Seleziona bacheca</option>
-                    {pinterestTree.boards.map((board) => (
-                      <option key={board.id} value={board.id}>
-                        {board.name} - {getPrivacyLabel(board.privacy)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="field">
-                  <span>Sezione origine</span>
-                  <select
-                    className="select-field"
-                    value={selectedPinterestSectionId}
-                    onChange={handlePinterestSectionChange}
-                    disabled={!selectedPinterestBoardId || pinterestLoading}
+                    <Glyph name="edit" />
+                    <span>Modifica</span>
+                  </button>
+                </div>
+                <div className="field-with-action">
+                  <label className="field">
+                    <span>Sezione origine</span>
+                    <select
+                      className="select-field"
+                      value={selectedPinterestSectionId}
+                      onChange={handlePinterestSectionChange}
+                      disabled={!selectedPinterestBoardId || pinterestLoading}
+                    >
+                      <option value="">Tutta la bacheca</option>
+                      {selectedPinterestSections.map((section) => (
+                        <option key={section.id} value={section.id}>
+                          {section.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <button
+                    className="secondary-button field-action-button"
+                    type="button"
+                    onClick={() => openPinterestRenameModal("section")}
+                    disabled={!selectedPinterestSection || pinterestActionLoading}
+                    aria-label="Modifica nome sezione"
                   >
-                    <option value="">Tutta la bacheca</option>
-                    {selectedPinterestSections.map((section) => (
-                      <option key={section.id} value={section.id}>
-                        {section.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                    <Glyph name="edit" />
+                    <span>Modifica</span>
+                  </button>
+                </div>
               </div>
 
               <div className="settings-grid">
@@ -3625,57 +3679,6 @@ export default function HomePage() {
                 <div className="setting-card">
                   <span>Sezioni</span>
                   <strong>{allPinterestSections.length}</strong>
-                </div>
-                <div className="setting-card editable-setting">
-                  <span>Nome bacheca</span>
-                  <div className="setting-field-row">
-                    <input
-                      className="select-field"
-                      type="text"
-                      value={pinterestBoardNameDraft}
-                      onChange={(event) => setPinterestBoardNameDraft(event.target.value)}
-                      disabled={!selectedPinterestBoard || pinterestActionLoading}
-                    />
-                    <button
-                      className="secondary-button compact-action"
-                      type="button"
-                      onClick={updateSelectedPinterestBoardName}
-                      disabled={
-                        !selectedPinterestBoard ||
-                        pinterestActionLoading ||
-                        !pinterestBoardNameDraft.trim() ||
-                        pinterestBoardNameDraft.trim() === selectedPinterestBoard.name
-                      }
-                    >
-                      Salva
-                    </button>
-                  </div>
-                </div>
-                <div className="setting-card editable-setting">
-                  <span>Nome sezione</span>
-                  <div className="setting-field-row">
-                    <input
-                      className="select-field"
-                      type="text"
-                      value={pinterestSectionNameDraft}
-                      onChange={(event) => setPinterestSectionNameDraft(event.target.value)}
-                      disabled={!selectedPinterestSection || pinterestActionLoading}
-                      placeholder={selectedPinterestSection ? "Nome sezione" : "Seleziona una sezione"}
-                    />
-                    <button
-                      className="secondary-button compact-action"
-                      type="button"
-                      onClick={updateSelectedPinterestSectionName}
-                      disabled={
-                        !selectedPinterestSection ||
-                        pinterestActionLoading ||
-                        !pinterestSectionNameDraft.trim() ||
-                        pinterestSectionNameDraft.trim() === selectedPinterestSection.name
-                      }
-                    >
-                      Salva
-                    </button>
-                  </div>
                 </div>
                 <div className="setting-card">
                   <span>Privacy bacheca</span>
@@ -3708,6 +3711,72 @@ export default function HomePage() {
                 </div>
               ) : null}
             </article>
+
+            {pinterestRenameModal ? (
+              <div className="modal-backdrop" role="presentation" onClick={() => setPinterestRenameModal("")}>
+                <section
+                  className="decision-modal compact-modal"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-label={pinterestRenameModal === "section" ? "Modifica nome sezione" : "Modifica nome bacheca"}
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  <div className="decision-modal-head">
+                    <div>
+                      <span className="meta-label">Amministrazione Pinterest</span>
+                      <h3>{pinterestRenameModal === "section" ? "Modifica nome sezione" : "Modifica nome bacheca"}</h3>
+                      <p>Salva il nuovo nome; al termine ricarichiamo i dati Pinterest aggiornati.</p>
+                    </div>
+                    <button className="icon-button compact" type="button" onClick={() => setPinterestRenameModal("")}>
+                      <Glyph name="back" />
+                    </button>
+                  </div>
+
+                  <div className="decision-modal-body single-column">
+                    <label className="field">
+                      <span>Nuovo nome</span>
+                      <input
+                        className="select-field"
+                        type="text"
+                        value={pinterestRenameModal === "section" ? pinterestSectionNameDraft : pinterestBoardNameDraft}
+                        onChange={(event) =>
+                          pinterestRenameModal === "section"
+                            ? setPinterestSectionNameDraft(event.target.value)
+                            : setPinterestBoardNameDraft(event.target.value)
+                        }
+                        disabled={pinterestActionLoading}
+                        placeholder={pinterestRenameModal === "section" ? "Nome sezione" : "Nome bacheca"}
+                        autoFocus
+                      />
+                    </label>
+                  </div>
+
+                  <div className="decision-modal-actions">
+                    <button className="secondary-button" type="button" onClick={() => setPinterestRenameModal("")} disabled={pinterestActionLoading}>
+                      Annulla
+                    </button>
+                    <button
+                      className="primary-button"
+                      type="button"
+                      onClick={pinterestRenameModal === "section" ? updateSelectedPinterestSectionName : updateSelectedPinterestBoardName}
+                      disabled={
+                        pinterestActionLoading ||
+                        (pinterestRenameModal === "section"
+                          ? !selectedPinterestSection ||
+                            !pinterestSectionNameDraft.trim() ||
+                            pinterestSectionNameDraft.trim() === selectedPinterestSection.name
+                          : !selectedPinterestBoard ||
+                            !pinterestBoardNameDraft.trim() ||
+                            pinterestBoardNameDraft.trim() === selectedPinterestBoard.name)
+                      }
+                    >
+                      <Glyph name="check" />
+                      <span>{pinterestActionLoading ? "Salvo..." : "Salva"}</span>
+                    </button>
+                  </div>
+                </section>
+              </div>
+            ) : null}
 
             {pinterestCreateModalOpen ? (
               <div className="modal-backdrop" role="presentation" onClick={() => setPinterestCreateModalOpen(false)}>
