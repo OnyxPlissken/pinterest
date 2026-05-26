@@ -475,8 +475,24 @@ function buildSyncMessage(summary = {}) {
     `${summary.verified || 0} verificati`,
     `${summary.replaced || 0} sostituiti`,
     `${summary.deleted || 0} eliminati`,
+    `${summary.skipped || 0} saltati`,
     `${summary.unchanged || 0} invariati`
   ].join(", ");
+}
+
+function getSyncReplacementCandidates(syncConfirm) {
+  const payload = syncConfirm?.dryRunPayload;
+  if (!payload) {
+    return [];
+  }
+
+  if (Array.isArray(payload.replacementCandidates)) {
+    return payload.replacementCandidates;
+  }
+
+  return (payload.actions || [])
+    .filter((action) => action.type === "replaced" && action.replacement)
+    .map((action) => action.replacement);
 }
 
 function replaceBulkText(value, search, replacement) {
@@ -2693,7 +2709,7 @@ export default function HomePage() {
     }
   }
 
-  async function confirmSyncPinterest() {
+  async function confirmSyncPinterest(replacementMode = "replace") {
     if (!syncConfirm) {
       return;
     }
@@ -2718,6 +2734,7 @@ export default function HomePage() {
         body: JSON.stringify({
           ...syncConfirm.requestBody,
           boardPrivacy: syncBoardPrivacy,
+          replacementMode,
           streamProgress: true
         })
       }, (event) => applyProgressEvent(event, "Push to Pinterest"));
@@ -2725,6 +2742,8 @@ export default function HomePage() {
       const message = buildSyncMessage(summary);
       const auditDuplicates = payload.audit?.duplicatePinterestPins?.length || 0;
       const privacyLabel = getPrivacyLabel(syncBoardPrivacy);
+      const replacementLabel =
+        replacementMode === "skip" ? "sostituzioni saltate" : "sostituzioni confermate";
       completeOperationProgress(`Push completato: ${message}`);
 
       setActionNotice({
@@ -2733,7 +2752,7 @@ export default function HomePage() {
           ? `Sync completato con ${summary.failed} errori: ${message}`
           : auditDuplicates
             ? `Sync completato, ma l'audit ha trovato ${auditDuplicates} duplicati Pinterest nella selezione: ${message}`
-          : `Sync Pinterest completato. Privacy richiesta: ${privacyLabel}: ${message}`
+          : `Sync Pinterest completato. Privacy richiesta: ${privacyLabel}, ${replacementLabel}: ${message}`
       });
       appendLog({
         action: "Sync Pinterest",
@@ -2742,7 +2761,7 @@ export default function HomePage() {
         scannedCount: payload.scannedCount,
         generatedCount: payload.generatedCount,
         skippedCount: payload.skippedCount,
-        message: `${message} - Privacy richiesta: ${privacyLabel}`
+        message: `${message} - Privacy richiesta: ${privacyLabel} - ${replacementLabel}`
       });
       setSyncConfirm(null);
     } catch (error) {
@@ -3165,6 +3184,7 @@ export default function HomePage() {
     preview &&
     preview.selectedSubPaths?.length === selectedGenerationPaths.length &&
     selectedGenerationPaths.every((path) => preview.selectedSubPaths.includes(path));
+  const syncReplacementCandidates = getSyncReplacementCandidates(syncConfirm);
 
   return (
     <main className="workspace-shell">
@@ -3746,12 +3766,16 @@ export default function HomePage() {
 
             {syncConfirm ? (
               <div className="modal-backdrop" role="presentation" onClick={cancelSyncPinterest}>
-                <section className="decision-modal compact-modal" role="dialog" aria-modal="true" aria-label="Conferma sync Pinterest" onClick={(event) => event.stopPropagation()}>
+                <section className={`decision-modal ${syncReplacementCandidates.length ? "" : "compact-modal"}`} role="dialog" aria-modal="true" aria-label="Conferma sync Pinterest" onClick={(event) => event.stopPropagation()}>
                   <div className="decision-modal-head">
                     <div>
                       <span className="meta-label">Sync Pinterest</span>
-                      <h3>Privacy prima di pubblicare</h3>
-                      <p>La simulazione e completata. Scegli la privacy da usare solo per i nuovi contenuti senza storico. I Pin gia pubblicati mantengono la privacy che avevano su Pinterest.</p>
+                      <h3>{syncReplacementCandidates.length ? "Pin gia esistenti trovati" : "Privacy prima di pubblicare"}</h3>
+                      <p>
+                        {syncReplacementCandidates.length
+                          ? "La simulazione ha trovato Pin gia pubblicati che verrebbero sostituiti. Controllali qui sotto e scegli se eliminare i vecchi e creare i nuovi, saltarli, oppure annullare tutto."
+                          : "La simulazione e completata. Scegli la privacy da usare solo per i nuovi contenuti senza storico. I Pin gia pubblicati mantengono la privacy che avevano su Pinterest."}
+                      </p>
                     </div>
                     <button className="icon-button compact" type="button" onClick={cancelSyncPinterest} disabled={syncLoading}>
                       <Glyph name="back" />
@@ -3784,6 +3808,52 @@ export default function HomePage() {
                       </div>
                     ) : null}
 
+                    {syncReplacementCandidates.length ? (
+                      <div className="replacement-review">
+                        <div className="replacement-review-head">
+                          <strong>{syncReplacementCandidates.length} Pin da rimpiazzare</strong>
+                          <span>Questa e l&apos;anteprima dei nuovi Pin che verrebbero creati.</span>
+                        </div>
+                        <div className="replacement-grid">
+                          {syncReplacementCandidates.map((candidate) => (
+                            <article className="replacement-card" key={`${candidate.sourceKey}-${candidate.pinId}`}>
+                              <div className={`replacement-image-compare ${candidate.currentPin?.mediaUrl ? "has-current" : ""}`}>
+                                {candidate.currentPin?.mediaUrl ? (
+                                  <div className="replacement-image-wrap">
+                                    <span>Ora</span>
+                                    <img src={candidate.currentPin.mediaUrl} alt={candidate.currentPin.title || candidate.pinId} />
+                                  </div>
+                                ) : null}
+                                <div className="replacement-image-wrap">
+                                  <span>Nuovo</span>
+                                  {candidate.newPin?.mediaUrl ? (
+                                    <img src={candidate.newPin.mediaUrl} alt={candidate.newPin.title || candidate.filename} />
+                                  ) : (
+                                    <div className="pin-empty-image">No image</div>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="replacement-copy">
+                                <span className="status-pill">{candidate.reason}</span>
+                                <strong>{candidate.newPin?.title || candidate.filename}</strong>
+                                <small>{candidate.newPin?.description || "Descrizione vuota"}</small>
+                                <div className="replacement-meta">
+                                  <span>{candidate.newPin?.boardName || "Bacheca non indicata"}</span>
+                                  <span>{candidate.newPin?.sectionName || "Nessuna sezione"}</span>
+                                  <span>{candidate.newPin?.link || "Link vuoto"}</span>
+                                </div>
+                                <div className="replacement-current">
+                                  <span>Pin attuale</span>
+                                  <strong>{candidate.currentPin?.title || candidate.pinId}</strong>
+                                  <small>{candidate.pinUrl || candidate.pinId}</small>
+                                </div>
+                              </div>
+                            </article>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+
                     <OperationProgress progress={operationProgress} />
 
                     <label className="field">
@@ -3807,9 +3877,21 @@ export default function HomePage() {
                     <button className="secondary-button" type="button" onClick={cancelSyncPinterest} disabled={syncLoading}>
                       Annulla
                     </button>
-                    <button className="primary-button" type="button" onClick={confirmSyncPinterest} disabled={syncLoading}>
+                    {syncReplacementCandidates.length ? (
+                      <button className="secondary-button" type="button" onClick={() => confirmSyncPinterest("skip")} disabled={syncLoading}>
+                        <Glyph name="back" />
+                        <span>{syncLoading ? "Sincronizzo..." : "No, salta rimpiazzi"}</span>
+                      </button>
+                    ) : null}
+                    <button className="primary-button" type="button" onClick={() => confirmSyncPinterest("replace")} disabled={syncLoading}>
                       <Glyph name="check" />
-                      <span>{syncLoading ? "Sincronizzo..." : "Conferma sync"}</span>
+                      <span>
+                        {syncLoading
+                          ? "Sincronizzo..."
+                          : syncReplacementCandidates.length
+                            ? "Si, sostituisci"
+                            : "Conferma sync"}
+                      </span>
                     </button>
                   </div>
                 </section>

@@ -1041,6 +1041,118 @@ svg {
   background: var(--error);
 }
 
+.replacement-review {
+  display: grid;
+  gap: 12px;
+}
+
+.replacement-review-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px 12px;
+}
+
+.replacement-review-head strong {
+  font-size: 13px;
+}
+
+.replacement-review-head span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.replacement-grid {
+  max-height: min(52vh, 620px);
+  overflow: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+  padding-right: 4px;
+}
+
+.replacement-card {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.replacement-image-compare {
+  display: grid;
+  grid-template-columns: 1fr;
+}
+
+.replacement-image-compare.has-current {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.replacement-image-wrap {
+  position: relative;
+  aspect-ratio: 4 / 5;
+  background: var(--surface-soft);
+  display: grid;
+  place-items: center;
+}
+
+.replacement-image-wrap span {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 1;
+  padding: 4px 6px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.58);
+  color: white;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.replacement-image-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: white;
+}
+
+.replacement-copy {
+  padding: 11px;
+  display: grid;
+  gap: 8px;
+}
+
+.replacement-copy strong {
+  font-size: 13px;
+  line-height: 1.25;
+}
+
+.replacement-copy small,
+.replacement-meta span,
+.replacement-current span,
+.replacement-current small {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.replacement-meta {
+  display: grid;
+  gap: 3px;
+}
+
+.replacement-current {
+  display: grid;
+  gap: 3px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
+.replacement-current strong {
+  font-size: 12px;
+}
+
 .log-stack,
 .route-stack,
 .explorer-list {
