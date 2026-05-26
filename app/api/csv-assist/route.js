@@ -21,6 +21,7 @@ export async function POST(request) {
       strategy: body?.strategy ?? "newOnly",
       createMissingContainers: body?.createMissingContainers === true,
       forceRefresh: body?.forceRefresh === true,
+      rowEdits: body?.rowEdits ?? [],
       origin: request.nextUrl.origin
     };
 

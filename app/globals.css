@@ -1155,6 +1155,18 @@ svg {
   font-size: 10px;
 }
 
+.preview-head-tools {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+}
+
+.preview-head-tools .preview-meta {
+  justify-content: flex-end;
+}
+
 .preview-grid {
   margin-top: 16px;
   grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
@@ -1649,6 +1661,20 @@ svg {
   font-size: 11px;
   font-weight: 700;
   line-height: 1.4;
+}
+
+.pin-edited-badge {
+  margin-left: auto;
+  padding: 4px 6px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--success) 22%, transparent);
+  background: color-mix(in srgb, var(--success) 12%, transparent);
+  color: var(--success);
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .preview-pin-title {

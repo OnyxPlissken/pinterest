@@ -27,6 +27,7 @@ export async function POST(request) {
       ruleId: body?.ruleId ?? "",
       dryRun: body?.dryRun === true,
       boardPrivacy: body?.boardPrivacy ?? body?.pinPrivacy ?? "PUBLIC",
+      rowEdits: body?.rowEdits ?? [],
       origin: request.nextUrl.origin
     });
 

@@ -77,6 +77,16 @@ const EMPTY_PIN_BULK_EDIT_FORM = {
   updatePrivacy: false,
   privacy: "PUBLIC"
 };
+const EMPTY_PREVIEW_TUNE_FORM = {
+  updateTitle: false,
+  titleFind: "",
+  titleReplace: "",
+  updateDescription: false,
+  descriptionFind: "",
+  descriptionReplace: "",
+  updateLink: false,
+  link: ""
+};
 
 function Glyph({ name }) {
   const glyphs = {
@@ -589,11 +599,30 @@ function isPromiseLike(value) {
   return value && typeof value.then === "function";
 }
 
-function createCsvAssistCacheKey({ subPaths = [], ruleId = "", strategy = "" }) {
+function createPreviewEditsSignature(rowEdits = []) {
+  if (!rowEdits.length) {
+    return "";
+  }
+
+  return JSON.stringify(
+    rowEdits
+      .map((edit) => ({
+        sourceKey: edit.sourceKey,
+        title: edit.title,
+        description: edit.description,
+        link: edit.link,
+        board: edit.board
+      }))
+      .sort((left, right) => String(left.sourceKey || "").localeCompare(String(right.sourceKey || "")))
+  );
+}
+
+function createCsvAssistCacheKey({ subPaths = [], ruleId = "", strategy = "", rowEdits = [] }) {
   return JSON.stringify({
     ruleId,
     strategy,
-    subPaths: [...subPaths].map(String).sort()
+    subPaths: [...subPaths].map(String).sort(),
+    edits: createPreviewEditsSignature(rowEdits)
   });
 }
 
@@ -641,6 +670,8 @@ export default function HomePage() {
   const [explorerQuery, setExplorerQuery] = useState("");
   const [preview, setPreview] = useState(null);
   const [previewDetailItem, setPreviewDetailItem] = useState(null);
+  const [previewTuneOpen, setPreviewTuneOpen] = useState(false);
+  const [previewTuneForm, setPreviewTuneForm] = useState(EMPTY_PREVIEW_TUNE_FORM);
   const [result, setResult] = useState(null);
   const [csvAssist, setCsvAssist] = useState(null);
   const [csvAssistStrategy, setCsvAssistStrategy] = useState("newOnly");
@@ -860,12 +891,39 @@ export default function HomePage() {
     return createCsvAssistCacheKey({
       subPaths: selectedGenerationPaths,
       ruleId: selectedRuleId,
-      strategy
+      strategy,
+      rowEdits: buildPreviewRowEdits()
     });
   }
 
   function getCachedCsvAssist(strategy = csvAssistStrategy) {
     return csvAssistCacheRef.current.get(getCsvAssistCacheKey(strategy)) || null;
+  }
+
+  function buildPreviewRowEdits() {
+    return (preview?.previewItems || [])
+      .filter((item) => item.sourceKey)
+      .map((item) => ({
+        sourceKey: item.sourceKey,
+        title: item.title || "",
+        description: item.description || "",
+        link: item.link || "",
+        board: item.board || ""
+      }));
+  }
+
+  function openPreviewTuneModal() {
+    if (!previewReady) {
+      setActionNotice({
+        type: "error",
+        text: "Carica prima l'anteprima con la selezione corrente."
+      });
+      return;
+    }
+
+    setPreviewTuneForm(EMPTY_PREVIEW_TUNE_FORM);
+    setPreviewTuneOpen(true);
+    setActionNotice(null);
   }
 
   useEffect(() => {
@@ -1866,6 +1924,9 @@ export default function HomePage() {
     setResult(null);
     setCsvAssist(null);
     setCsvAssistModalOpen(false);
+    setPreviewTuneOpen(false);
+    setPreviewTuneForm(EMPTY_PREVIEW_TUNE_FORM);
+    setSyncConfirm(null);
     setActionNotice(null);
     csvAssistCacheRef.current.clear();
   }
@@ -1980,6 +2041,9 @@ export default function HomePage() {
     setResult(null);
     setCsvAssist(null);
     setPreviewDetailItem(null);
+    setPreviewTuneOpen(false);
+    setPreviewTuneForm(EMPTY_PREVIEW_TUNE_FORM);
+    setSyncConfirm(null);
     csvAssistCacheRef.current.clear();
 
     try {
@@ -2076,6 +2140,7 @@ export default function HomePage() {
           subPaths: selectedGenerationPaths,
           ruleId: selectedRuleId,
           strategy,
+          rowEdits: buildPreviewRowEdits(),
           forceRefresh: force
         })
       });
@@ -2117,6 +2182,111 @@ export default function HomePage() {
     setCsvAssistModalOpen(true);
     setCsvAssist(getCachedCsvAssist(csvAssistStrategy));
     await loadCsvAssistPreflight(csvAssistStrategy, true);
+  }
+
+  function applyPreviewTune() {
+    const hasChanges =
+      previewTuneForm.updateTitle ||
+      previewTuneForm.updateDescription ||
+      previewTuneForm.updateLink;
+
+    if (!previewReady) {
+      setActionNotice({
+        type: "error",
+        text: "Carica prima l'anteprima con la selezione corrente."
+      });
+      return;
+    }
+
+    if (!hasChanges) {
+      setActionNotice({
+        type: "error",
+        text: "Scegli almeno un campo da preparare prima del sync."
+      });
+      return;
+    }
+
+    if (previewTuneForm.updateTitle && !previewTuneForm.titleFind) {
+      setActionNotice({
+        type: "error",
+        text: "Inserisci il testo da cercare nel titolo."
+      });
+      return;
+    }
+
+    if (previewTuneForm.updateDescription && !previewTuneForm.descriptionFind) {
+      setActionNotice({
+        type: "error",
+        text: "Inserisci il testo da cercare nella descrizione."
+      });
+      return;
+    }
+
+    const currentItems = preview?.previewItems || [];
+    const previewItems = currentItems.map((item) => {
+      const nextItem = { ...item };
+
+      if (previewTuneForm.updateTitle) {
+        nextItem.title = replaceBulkText(
+          item.title,
+          previewTuneForm.titleFind,
+          previewTuneForm.titleReplace
+        );
+      }
+
+      if (previewTuneForm.updateDescription) {
+        nextItem.description = replaceBulkText(
+          item.description,
+          previewTuneForm.descriptionFind,
+          previewTuneForm.descriptionReplace
+        );
+      }
+
+      if (previewTuneForm.updateLink) {
+        nextItem.link = previewTuneForm.link;
+      }
+
+      const changed =
+        nextItem.title !== item.title ||
+        nextItem.description !== item.description ||
+        nextItem.link !== item.link;
+
+      return {
+        ...nextItem,
+        edited: item.edited || changed
+      };
+    });
+    const changedCount = previewItems.filter((item, index) => {
+      const current = currentItems[index];
+      return (
+        item.title !== current.title ||
+        item.description !== current.description ||
+        item.link !== current.link
+      );
+    }).length;
+
+    setPreview((current) =>
+      current
+        ? {
+            ...current,
+            previewItems,
+            editedCount: previewItems.filter((item) => item.edited).length
+          }
+        : current
+    );
+
+    setResult(null);
+    setCsvAssist(null);
+    setCsvAssistModalOpen(false);
+    setSyncConfirm(null);
+    csvAssistCacheRef.current.clear();
+    setPreviewTuneOpen(false);
+    setActionNotice({
+      type: changedCount ? "success" : "info",
+      text: changedCount
+        ? `Messa a punto applicata a ${changedCount} Pin dell'anteprima. CSV e sync useranno questi valori.`
+        : "Nessun Pin e cambiato: controlla il testo cercato o il link impostato."
+    });
   }
 
   async function generateCsv() {
@@ -2174,6 +2344,7 @@ export default function HomePage() {
           subPaths: selectedGenerationPaths,
           ruleId: selectedRuleId,
           strategy: csvAssistStrategy,
+          rowEdits: buildPreviewRowEdits(),
           createMissingContainers: csvAssistCreateContainers
         })
       });
@@ -2230,7 +2401,8 @@ export default function HomePage() {
     try {
       const requestBody = {
         subPaths: selectedGenerationPaths,
-        ruleId: selectedRuleId
+        ruleId: selectedRuleId,
+        rowEdits: buildPreviewRowEdits()
       };
       const dryRunPayload = await fetchJson("/api/sync", {
         method: "POST",
@@ -3360,6 +3532,12 @@ export default function HomePage() {
                       </div>
                     </div>
 
+                    {syncConfirm.dryRunPayload?.summary?.replaced ? (
+                      <div className="notice info">
+                        I Pin con testo, link o immagine diversi vengono cancellati e ricreati dopo conferma, perche Pinterest non consente la modifica diretta dei Pin via API.
+                      </div>
+                    ) : null}
+
                     <label className="field">
                       <span>Privacy di pubblicazione</span>
                       <select
@@ -3390,15 +3568,167 @@ export default function HomePage() {
               </div>
             ) : null}
 
+            {previewTuneOpen ? (
+              <div className="modal-backdrop" role="presentation" onClick={() => setPreviewTuneOpen(false)}>
+                <section className="decision-modal compact-modal" role="dialog" aria-modal="true" aria-label="Messa a punto anteprima" onClick={(event) => event.stopPropagation()}>
+                  <div className="decision-modal-head">
+                    <div>
+                      <span className="meta-label">Anteprima sync</span>
+                      <h3>Messa a punto prima di pubblicare</h3>
+                      <p>Modifica i testi comuni dell&apos;anteprima. Il CSV e il sync useranno questi valori; i Pin gia pubblicati non vengono modificati via API, vengono ricreati solo quando confermi una sostituzione.</p>
+                    </div>
+                    <button className="icon-button compact" type="button" onClick={() => setPreviewTuneOpen(false)}>
+                      <Glyph name="back" />
+                    </button>
+                  </div>
+
+                  <div className="decision-modal-body single-column">
+                    <div className="preview-info-card">
+                      <span>Pin in anteprima</span>
+                      <strong>{preview?.previewItems?.length || 0}</strong>
+                    </div>
+
+                    <div className="bulk-edit-stack">
+                      <label className="bulk-edit-toggle">
+                        <input
+                          type="checkbox"
+                          checked={previewTuneForm.updateTitle}
+                          onChange={(event) =>
+                            setPreviewTuneForm((current) => ({
+                              ...current,
+                              updateTitle: event.target.checked
+                            }))
+                          }
+                        />
+                        <span>Titolo</span>
+                      </label>
+                      <input
+                        className="select-field"
+                        type="text"
+                        value={previewTuneForm.titleFind}
+                        onChange={(event) =>
+                          setPreviewTuneForm((current) => ({
+                            ...current,
+                            titleFind: event.target.value
+                          }))
+                        }
+                        disabled={!previewTuneForm.updateTitle}
+                        placeholder="Testo da cercare nel titolo"
+                      />
+                      <input
+                        className="select-field"
+                        type="text"
+                        value={previewTuneForm.titleReplace}
+                        onChange={(event) =>
+                          setPreviewTuneForm((current) => ({
+                            ...current,
+                            titleReplace: event.target.value
+                          }))
+                        }
+                        disabled={!previewTuneForm.updateTitle}
+                        placeholder="Sostituisci con"
+                      />
+
+                      <label className="bulk-edit-toggle">
+                        <input
+                          type="checkbox"
+                          checked={previewTuneForm.updateDescription}
+                          onChange={(event) =>
+                            setPreviewTuneForm((current) => ({
+                              ...current,
+                              updateDescription: event.target.checked
+                            }))
+                          }
+                        />
+                        <span>Descrizione</span>
+                      </label>
+                      <input
+                        className="select-field"
+                        type="text"
+                        value={previewTuneForm.descriptionFind}
+                        onChange={(event) =>
+                          setPreviewTuneForm((current) => ({
+                            ...current,
+                            descriptionFind: event.target.value
+                          }))
+                        }
+                        disabled={!previewTuneForm.updateDescription}
+                        placeholder="Testo da cercare nella descrizione"
+                      />
+                      <input
+                        className="select-field"
+                        type="text"
+                        value={previewTuneForm.descriptionReplace}
+                        onChange={(event) =>
+                          setPreviewTuneForm((current) => ({
+                            ...current,
+                            descriptionReplace: event.target.value
+                          }))
+                        }
+                        disabled={!previewTuneForm.updateDescription}
+                        placeholder="Sostituisci con"
+                      />
+
+                      <label className="bulk-edit-toggle">
+                        <input
+                          type="checkbox"
+                          checked={previewTuneForm.updateLink}
+                          onChange={(event) =>
+                            setPreviewTuneForm((current) => ({
+                              ...current,
+                              updateLink: event.target.checked
+                            }))
+                          }
+                        />
+                        <span>Link</span>
+                      </label>
+                      <input
+                        className="select-field"
+                        type="text"
+                        value={previewTuneForm.link}
+                        onChange={(event) =>
+                          setPreviewTuneForm((current) => ({
+                            ...current,
+                            link: event.target.value
+                          }))
+                        }
+                        disabled={!previewTuneForm.updateLink}
+                        placeholder="Lascia vuoto per pubblicare senza link"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="decision-modal-actions">
+                    <button className="secondary-button" type="button" onClick={() => setPreviewTuneOpen(false)}>
+                      Annulla
+                    </button>
+                    <button className="primary-button" type="button" onClick={applyPreviewTune}>
+                      <Glyph name="check" />
+                      <span>Applica all&apos;anteprima</span>
+                    </button>
+                  </div>
+                </section>
+              </div>
+            ) : null}
+
             <section className="preview-panel panel">
               <div className="panel-head">
                 <div>
                   <h3>Anteprima contenuti</h3>
                   <p>Scegli una o piu cartelle finali e carica l&apos;anteprima prima della generazione.</p>
                 </div>
-                <div className="preview-meta">
-                  <span>{preview ? `${preview.generatedCount} pin validi` : "Nessuna anteprima"}</span>
-                  <span>{preview ? `${preview.scannedCount} file letti` : "In attesa"}</span>
+                <div className="preview-head-tools">
+                  <div className="preview-meta">
+                    <span>{preview ? `${preview.generatedCount} pin validi` : "Nessuna anteprima"}</span>
+                    <span>{preview ? `${preview.scannedCount} file letti` : "In attesa"}</span>
+                    {preview?.editedCount ? <span>{preview.editedCount} messi a punto</span> : null}
+                  </div>
+                  {preview ? (
+                    <button className="secondary-button compact-action" type="button" onClick={openPreviewTuneModal}>
+                      <Glyph name="edit" />
+                      <span>Messa a punto</span>
+                    </button>
+                  ) : null}
                 </div>
               </div>
 
@@ -3428,6 +3758,7 @@ export default function HomePage() {
                       <article className="pinterest-pin-card" key={`${item.sourceSubPath}-${item.filename}`}>
                         <button className="pin-check preview-pin-title" type="button" onClick={() => setPreviewDetailItem(item)}>
                           <span>{item.title || "Pin senza titolo"}</span>
+                          {item.edited ? <small className="pin-edited-badge">Modificato</small> : null}
                         </button>
                         <button className="pin-card-button" type="button" onClick={() => setPreviewDetailItem(item)}>
                           <img src={item.imageUrl} alt={item.title} />

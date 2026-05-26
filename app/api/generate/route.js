@@ -11,6 +11,7 @@ export async function POST(request) {
       subPaths: body?.subPaths ?? [],
       subPath: body?.subPath ?? "",
       ruleId: body?.ruleId ?? "",
+      rowEdits: body?.rowEdits ?? [],
       origin: request.nextUrl.origin
     });
 

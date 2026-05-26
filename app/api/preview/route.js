@@ -12,6 +12,7 @@ export async function POST(request) {
       subPath: body?.subPath ?? "",
       ruleId: body?.ruleId ?? "",
       forceRefresh: body?.forceRefresh === true,
+      rowEdits: body?.rowEdits ?? [],
       origin: request.nextUrl.origin
     });
 
