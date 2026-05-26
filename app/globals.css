@@ -972,6 +972,75 @@ svg {
   border-color: color-mix(in srgb, var(--warning) 18%, transparent);
 }
 
+.operation-progress {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--surface-soft);
+  display: grid;
+  gap: 9px;
+}
+
+.operation-progress-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.operation-progress-head div {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.operation-progress strong {
+  font-size: 13px;
+}
+
+.operation-progress span,
+.operation-progress small {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.operation-progress em {
+  color: var(--text);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.operation-progress-bar {
+  height: 8px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--line) 70%, transparent);
+}
+
+.operation-progress-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 62%, white));
+  transition: width 220ms ease;
+}
+
+.operation-progress.done .operation-progress-bar span {
+  background: linear-gradient(90deg, var(--success), color-mix(in srgb, var(--success) 68%, white));
+}
+
+.operation-progress.error {
+  border-color: color-mix(in srgb, var(--error) 24%, transparent);
+}
+
+.operation-progress.error .operation-progress-bar span {
+  background: var(--error);
+}
+
 .log-stack,
 .route-stack,
 .explorer-list {

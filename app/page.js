@@ -87,6 +87,7 @@ const EMPTY_PREVIEW_TUNE_FORM = {
   updateLink: false,
   link: ""
 };
+const PROGRESS_CAP_DEFAULT = 94;
 
 function Glyph({ name }) {
   const glyphs = {
@@ -330,6 +331,78 @@ function formatPaths(paths = []) {
   }
 
   return `${paths.length} cartelle selezionate`;
+}
+
+function OperationProgress({ progress }) {
+  if (!progress) {
+    return null;
+  }
+
+  const value = Math.max(0, Math.min(100, Math.round(progress.value || 0)));
+  const statusClass = progress.status ? ` ${progress.status}` : "";
+
+  return (
+    <div className={`operation-progress${statusClass}`} aria-live="polite">
+      <div className="operation-progress-head">
+        <div>
+          <strong>{progress.label}</strong>
+          <span>{progress.detail}</span>
+        </div>
+        <em>{value}%</em>
+      </div>
+      <div className="operation-progress-bar" role="progressbar" aria-valuenow={value} aria-valuemin="0" aria-valuemax="100">
+        <span style={{ width: `${value}%` }} />
+      </div>
+      {progress.item ? <small>{progress.item}</small> : null}
+    </div>
+  );
+}
+
+function calculateProgressEventValue(event) {
+  const current = Number(event?.current ?? 0);
+  const total = Number(event?.total ?? 0);
+  const ratio = total > 0 ? Math.max(0, Math.min(1, current / total)) : 0;
+
+  if (event?.scope === "sync") {
+    if (["sharepoint", "selection", "cache"].includes(event.phase)) {
+      return 8 + ratio * 14;
+    }
+    if (event.phase === "targets") {
+      return 24;
+    }
+    if (event.phase === "pinterest-index") {
+      return 32;
+    }
+    if (["dry-run", "push"].includes(event.phase)) {
+      return 38 + ratio * 54;
+    }
+    if (event.phase === "cleanup") {
+      return 94;
+    }
+    if (event.phase === "audit") {
+      return 96;
+    }
+    if (event.phase === "ready") {
+      return 100;
+    }
+  }
+
+  if (event?.scope === "preview") {
+    if (event.phase === "cache") {
+      return 100;
+    }
+    if (event.phase === "sharepoint") {
+      return 8 + ratio * 62;
+    }
+    if (event.phase === "selection") {
+      return 78;
+    }
+    if (event.phase === "ready") {
+      return 100;
+    }
+  }
+
+  return total > 0 ? Math.min(98, Math.max(6, ratio * 100)) : undefined;
 }
 
 function splitSubPath(value) {
@@ -679,6 +752,7 @@ export default function HomePage() {
   const [csvAssistCreateContainers, setCsvAssistCreateContainers] = useState(true);
   const [syncConfirm, setSyncConfirm] = useState(null);
   const [syncBoardPrivacy, setSyncBoardPrivacy] = useState("SECRET");
+  const [operationProgress, setOperationProgress] = useState(null);
   const [pinterestCreateModalOpen, setPinterestCreateModalOpen] = useState(false);
   const [pinterestRenameModal, setPinterestRenameModal] = useState("");
   const [pinterestCreateForm, setPinterestCreateForm] = useState({
@@ -759,6 +833,31 @@ export default function HomePage() {
   useEffect(() => {
     window.localStorage.setItem(LOG_STORAGE_KEY, JSON.stringify(operationLogs));
   }, [operationLogs]);
+
+  useEffect(() => {
+    if (!operationProgress?.active) {
+      return undefined;
+    }
+
+    const interval = window.setInterval(() => {
+      setOperationProgress((current) => {
+        if (!current?.active) {
+          return current;
+        }
+
+        const cap = current.cap || PROGRESS_CAP_DEFAULT;
+        const increment = current.mode === "push" ? 0.6 : 1.2;
+        const nextValue = Math.min(cap, Number(current.value || 0) + increment);
+
+        return {
+          ...current,
+          value: nextValue
+        };
+      });
+    }, 900);
+
+    return () => window.clearInterval(interval);
+  }, [operationProgress?.active, operationProgress?.key]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -924,6 +1023,74 @@ export default function HomePage() {
     setPreviewTuneForm(EMPTY_PREVIEW_TUNE_FORM);
     setPreviewTuneOpen(true);
     setActionNotice(null);
+  }
+
+  function startOperationProgress({ key, label, detail, total = 0, mode = "work", cap = PROGRESS_CAP_DEFAULT }) {
+    setOperationProgress({
+      key,
+      label,
+      detail,
+      item: "",
+      value: 4,
+      total,
+      mode,
+      cap,
+      active: true,
+      status: "running"
+    });
+  }
+
+  function applyProgressEvent(event, fallbackLabel) {
+    if (!event || event.type === "result") {
+      return;
+    }
+
+    const total = Number(event.total ?? 0);
+    const value = calculateProgressEventValue(event);
+
+    setOperationProgress((progress) =>
+      progress
+        ? {
+            ...progress,
+            label: progress.label || fallbackLabel,
+            detail: event.message || progress.detail,
+            item: event.item || progress.item,
+            value: value ?? progress.value,
+            total: total || progress.total,
+            active: true,
+            status: "running"
+          }
+        : progress
+    );
+  }
+
+  function completeOperationProgress(detail, item = "") {
+    setOperationProgress((progress) =>
+      progress
+        ? {
+            ...progress,
+            detail: detail || progress.detail,
+            item,
+            value: 100,
+            active: false,
+            status: "done"
+          }
+        : progress
+    );
+  }
+
+  function failOperationProgress(detail) {
+    setOperationProgress((progress) =>
+      progress
+        ? {
+            ...progress,
+            detail: detail || progress.detail,
+            value: Math.max(10, Math.min(100, progress.value || 0)),
+            active: false,
+            status: "error"
+          }
+        : progress
+    );
   }
 
   useEffect(() => {
@@ -1928,6 +2095,7 @@ export default function HomePage() {
     setPreviewTuneForm(EMPTY_PREVIEW_TUNE_FORM);
     setSyncConfirm(null);
     setActionNotice(null);
+    setOperationProgress(null);
     csvAssistCacheRef.current.clear();
   }
 
@@ -2045,9 +2213,15 @@ export default function HomePage() {
     setPreviewTuneForm(EMPTY_PREVIEW_TUNE_FORM);
     setSyncConfirm(null);
     csvAssistCacheRef.current.clear();
+    startOperationProgress({
+      key: `preview-${Date.now()}`,
+      label: "Generazione anteprima",
+      detail: `Leggo ${selectedGenerationPaths.length} cartelle SharePoint.`,
+      total: selectedGenerationPaths.length
+    });
 
     try {
-      const payload = await fetchJson("/api/preview", {
+      const payload = await fetchJsonWithProgress("/api/preview", {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
@@ -2055,11 +2229,13 @@ export default function HomePage() {
         body: JSON.stringify({
           subPaths: selectedGenerationPaths,
           ruleId: selectedRuleId,
-          forceRefresh: true
+          forceRefresh: true,
+          streamProgress: true
         })
-      });
+      }, (event) => applyProgressEvent(event, "Generazione anteprima"));
 
       setPreview(payload);
+      completeOperationProgress(`${payload.generatedCount} Pin validi, ${payload.scannedCount} file letti.`);
       setActionNotice({
         type: "success",
         text: `Anteprima pronta per ${formatPaths(payload.sourcePaths)}`
@@ -2081,6 +2257,7 @@ export default function HomePage() {
         type: "error",
         text: message
       });
+      failOperationProgress(message);
       appendLog({
         action: "Anteprima",
         status: "error",
@@ -2111,6 +2288,18 @@ export default function HomePage() {
     const cached = csvAssistCacheRef.current.get(cacheKey);
     if (!force && cached) {
       setCsvAssist(cached);
+      setOperationProgress({
+        key: `csv-cache-${Date.now()}`,
+        label: "Controllo CSV",
+        detail: "Analisi recuperata dalla cache.",
+        item: "",
+        value: 100,
+        total: cached.summary?.needsCsv || 0,
+        mode: "work",
+        cap: 100,
+        active: false,
+        status: "done"
+      });
       if (!silent) {
         const summary = cached.summary || {};
         setActionNotice({
@@ -2125,6 +2314,12 @@ export default function HomePage() {
     }
 
     setCsvAssistLoading(true);
+    startOperationProgress({
+      key: `csv-preflight-${Date.now()}`,
+      label: "Controllo CSV",
+      detail: "Confronto anteprima, storico e Pinterest.",
+      total: preview?.generatedCount || selectedGenerationPaths.length
+    });
     if (!silent) {
       setActionNotice(null);
     }
@@ -2147,6 +2342,9 @@ export default function HomePage() {
 
       csvAssistCacheRef.current.set(cacheKey, payload);
       setCsvAssist(payload);
+      completeOperationProgress(
+        `Analisi pronta: ${payload.summary?.needsCsv || 0} righe CSV, ${payload.summary?.deletable || 0} Pin eliminabili.`
+      );
       if (!silent) {
         const summary = payload.summary || {};
         setActionNotice({
@@ -2158,6 +2356,7 @@ export default function HomePage() {
     } catch (error) {
       const message = error instanceof Error ? error.message : "Analisi CSV non completata.";
       setCsvAssist(null);
+      failOperationProgress(message);
       if (!silent) {
         setActionNotice({
           type: "error",
@@ -2300,6 +2499,12 @@ export default function HomePage() {
 
     setGenerateLoading(true);
     setActionNotice(null);
+    startOperationProgress({
+      key: `csv-generate-${Date.now()}`,
+      label: "Generazione CSV",
+      detail: "Preparo righe, contenitori mancanti e azioni richieste.",
+      total: preview?.generatedCount || selectedGenerationPaths.length
+    });
 
     try {
       let preflight = csvAssist;
@@ -2312,6 +2517,7 @@ export default function HomePage() {
           type: "error",
           text: "Generazione CSV bloccata: il controllo preliminare non e stato completato."
         });
+        failOperationProgress("Controllo preliminare non completato.");
         return;
       }
 
@@ -2321,6 +2527,7 @@ export default function HomePage() {
           type: "error",
           text: `CSV bloccato: Pinterest contiene gia ${duplicatePins.length} duplicati nella selezione. Risolvi i duplicati da Amministrazione Pinterest prima di generare nuovi file.`
         });
+        failOperationProgress("Duplicati Pinterest presenti nella selezione.");
         return;
       }
 
@@ -2330,9 +2537,17 @@ export default function HomePage() {
           `La strategia scelta eliminera ${deletable} Pin gia identificati su Pinterest prima di generare il CSV. Continuare?`
         );
         if (!confirmed) {
+          failOperationProgress("Generazione CSV annullata.");
           return;
         }
       }
+
+      startOperationProgress({
+        key: `csv-generate-run-${Date.now()}`,
+        label: "Generazione CSV",
+        detail: "Genero il file e applico la strategia scelta.",
+        total: preflight?.summary?.needsCsv || preview?.generatedCount || selectedGenerationPaths.length
+      });
 
       const payload = await fetchJson("/api/csv-assist", {
         method: "POST",
@@ -2352,6 +2567,11 @@ export default function HomePage() {
       setResult(payload);
       setCsvAssist(payload);
       setCsvAssistModalOpen(false);
+      completeOperationProgress(
+        payload.csvContent
+          ? `${payload.generatedCount} righe CSV generate.`
+          : "CSV completato: nessuna nuova riga da esportare."
+      );
       setActionNotice({
         type: payload.summary?.failed ? "error" : "success",
         text: payload.csvContent
@@ -2397,6 +2617,14 @@ export default function HomePage() {
 
     setSyncLoading(true);
     setActionNotice(null);
+    startOperationProgress({
+      key: `sync-dry-run-${Date.now()}`,
+      label: "Controllo sync Pinterest",
+      detail: "Simulo creazioni, sostituzioni ed eliminazioni prima del push.",
+      total: preview?.generatedCount || selectedGenerationPaths.length,
+      mode: "push",
+      cap: 96
+    });
 
     try {
       const requestBody = {
@@ -2404,13 +2632,13 @@ export default function HomePage() {
         ruleId: selectedRuleId,
         rowEdits: buildPreviewRowEdits()
       };
-      const dryRunPayload = await fetchJson("/api/sync", {
+      const dryRunPayload = await fetchJsonWithProgress("/api/sync", {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({ ...requestBody, dryRun: true })
-      });
+        body: JSON.stringify({ ...requestBody, dryRun: true, streamProgress: true })
+      }, (event) => applyProgressEvent(event, "Controllo sync Pinterest"));
       const dryRunSummary = dryRunPayload.summary || {};
       const duplicatePins = dryRunPayload.audit?.duplicatePinterestPins || [];
       const dryRunMessage = buildSyncMessage(dryRunSummary);
@@ -2422,6 +2650,7 @@ export default function HomePage() {
             ? `Sync bloccato: Pinterest contiene gia ${duplicatePins.length} duplicati nella selezione. Risolvi i duplicati da Amministrazione Pinterest prima di sincronizzare.`
             : `Sync bloccato dalla simulazione: ${dryRunMessage}`
         });
+        failOperationProgress("Simulazione bloccata: controlla duplicati o errori.");
         appendLog({
           action: "Sync Pinterest",
           status: "error",
@@ -2439,6 +2668,7 @@ export default function HomePage() {
         dryRunPayload,
         dryRunMessage
       });
+      completeOperationProgress(`Simulazione completata: ${dryRunMessage}`);
       setActionNotice({
         type: "info",
         text: `Controllo completato: ${dryRunMessage}. Scegli la privacy prima di pubblicare.`
@@ -2451,6 +2681,7 @@ export default function HomePage() {
         type: "error",
         text: message
       });
+      failOperationProgress(message);
       appendLog({
         action: "Sync Pinterest",
         status: "error",
@@ -2469,22 +2700,32 @@ export default function HomePage() {
 
     setSyncLoading(true);
     setActionNotice(null);
+    startOperationProgress({
+      key: `sync-push-${Date.now()}`,
+      label: "Push to Pinterest",
+      detail: "Pubblico, sostituisco e verifico i Pin su Pinterest.",
+      total: syncConfirm.dryRunPayload?.generatedCount || preview?.generatedCount || 0,
+      mode: "push",
+      cap: 98
+    });
 
     try {
-      const payload = await fetchJson("/api/sync", {
+      const payload = await fetchJsonWithProgress("/api/sync", {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
           ...syncConfirm.requestBody,
-          boardPrivacy: syncBoardPrivacy
+          boardPrivacy: syncBoardPrivacy,
+          streamProgress: true
         })
-      });
+      }, (event) => applyProgressEvent(event, "Push to Pinterest"));
       const summary = payload.summary || {};
       const message = buildSyncMessage(summary);
       const auditDuplicates = payload.audit?.duplicatePinterestPins?.length || 0;
       const privacyLabel = getPrivacyLabel(syncBoardPrivacy);
+      completeOperationProgress(`Push completato: ${message}`);
 
       setActionNotice({
         type: summary.failed || auditDuplicates ? "error" : "success",
@@ -2512,6 +2753,7 @@ export default function HomePage() {
         type: "error",
         text: message
       });
+      failOperationProgress(message);
       appendLog({
         action: "Sync Pinterest",
         status: "error",
@@ -3328,6 +3570,8 @@ export default function HomePage() {
                 </button>
               </div>
 
+              <OperationProgress progress={operationProgress} />
+
               {actionNotice ? <div className={`notice ${actionNotice.type}`}>{actionNotice.text}</div> : null}
             </section>
 
@@ -3344,6 +3588,8 @@ export default function HomePage() {
                       <Glyph name="back" />
                     </button>
                   </div>
+
+                  <OperationProgress progress={operationProgress} />
 
                   <div className="decision-modal-body">
                     <div className="decision-options">
@@ -3537,6 +3783,8 @@ export default function HomePage() {
                         I Pin con testo, link o immagine diversi vengono cancellati e ricreati dopo conferma, perche Pinterest non consente la modifica diretta dei Pin via API.
                       </div>
                     ) : null}
+
+                    <OperationProgress progress={operationProgress} />
 
                     <label className="field">
                       <span>Privacy di pubblicazione</span>
@@ -6123,5 +6371,75 @@ async function fetchJson(url, options) {
   return payload;
 }
 
+async function fetchJsonWithProgress(url, options, onProgress) {
+  const response = await fetch(url, options);
+  const contentType = response.headers.get("content-type") || "";
 
+  if (!contentType.includes("application/x-ndjson")) {
+    const payload = await response.json().catch(() => ({}));
 
+    if (response.status === 401 && typeof window !== "undefined") {
+      window.location.assign("/login");
+      throw new Error(payload.error || "Sessione non valida.");
+    }
+
+    if (!response.ok) {
+      throw new Error(payload.error || "Richiesta non riuscita.");
+    }
+
+    return payload;
+  }
+
+  const reader = response.body?.getReader();
+  if (!reader) {
+    throw new Error("Stream di avanzamento non disponibile.");
+  }
+
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let resultPayload = null;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) {
+      break;
+    }
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() || "";
+
+    for (const line of lines) {
+      if (!line.trim()) {
+        continue;
+      }
+
+      const event = JSON.parse(line);
+      if (event.type === "progress") {
+        onProgress?.(event);
+      } else if (event.type === "result") {
+        resultPayload = event.data;
+      } else if (event.type === "error") {
+        if (event.status === 401 && typeof window !== "undefined") {
+          window.location.assign("/login");
+        }
+        throw new Error(event.error || "Richiesta non riuscita.");
+      }
+    }
+  }
+
+  if (buffer.trim()) {
+    const event = JSON.parse(buffer);
+    if (event.type === "result") {
+      resultPayload = event.data;
+    } else if (event.type === "error") {
+      throw new Error(event.error || "Richiesta non riuscita.");
+    }
+  }
+
+  if (!response.ok) {
+    throw new Error("Richiesta non riuscita.");
+  }
+
+  return resultPayload || {};
+}
