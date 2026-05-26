@@ -88,6 +88,20 @@ const EMPTY_PREVIEW_TUNE_FORM = {
   link: ""
 };
 const PROGRESS_CAP_DEFAULT = 94;
+const PROGRESS_QUIPS = [
+  "E ora di girarsi i pollici.",
+  "Vai a prendere un caffe, ci penso io qui.",
+  "Che cosa hai da guardare? Sto lavorando.",
+  "Sto convincendo SharePoint a collaborare.",
+  "Pinterest sta ricevendo il trattamento completo.",
+  "Respira: le card stanno arrivando.",
+  "Non toccare niente, sto facendo ordine.",
+  "Se sembra fermo, e solo molto concentrato.",
+  "Conto i look uno per uno, senza drammi.",
+  "Sto mettendo i Pin in fila.",
+  "Ultime verifiche, poi torno da te.",
+  "Quasi fatto. Probabilmente."
+];
 
 function Glyph({ name }) {
   const glyphs = {
@@ -353,6 +367,7 @@ function OperationProgress({ progress }) {
       <div className="operation-progress-bar" role="progressbar" aria-valuenow={value} aria-valuemin="0" aria-valuemax="100">
         <span style={{ width: `${value}%` }} />
       </div>
+      {progress.quip ? <small className="operation-progress-quip">{progress.quip}</small> : null}
       {progress.item ? <small>{progress.item}</small> : null}
     </div>
   );
@@ -864,10 +879,18 @@ export default function HomePage() {
         const cap = current.cap || PROGRESS_CAP_DEFAULT;
         const increment = current.mode === "push" ? 0.6 : 1.2;
         const nextValue = Math.min(cap, Number(current.value || 0) + increment);
+        const tick = Number(current.tick || 0) + 1;
+        const quipIndex =
+          tick % 4 === 0
+            ? (Number(current.quipIndex || 0) + 1) % PROGRESS_QUIPS.length
+            : Number(current.quipIndex || 0);
 
         return {
           ...current,
-          value: nextValue
+          value: nextValue,
+          tick,
+          quipIndex,
+          quip: PROGRESS_QUIPS[quipIndex]
         };
       });
     }, 900);
@@ -1042,6 +1065,8 @@ export default function HomePage() {
   }
 
   function startOperationProgress({ key, label, detail, total = 0, mode = "work", cap = PROGRESS_CAP_DEFAULT }) {
+    const quipIndex = Math.floor(Date.now() / 1000) % PROGRESS_QUIPS.length;
+
     setOperationProgress({
       key,
       label,
@@ -1052,7 +1077,10 @@ export default function HomePage() {
       mode,
       cap,
       active: true,
-      status: "running"
+      status: "running",
+      tick: 0,
+      quipIndex,
+      quip: PROGRESS_QUIPS[quipIndex]
     });
   }
 
@@ -1089,7 +1117,8 @@ export default function HomePage() {
             item,
             value: 100,
             active: false,
-            status: "done"
+            status: "done",
+            quip: "Fatto. Puoi riprendere a respirare."
           }
         : progress
     );
@@ -1103,7 +1132,8 @@ export default function HomePage() {
             detail: detail || progress.detail,
             value: Math.max(10, Math.min(100, progress.value || 0)),
             active: false,
-            status: "error"
+            status: "error",
+            quip: "Qui serve un attimo di attenzione."
           }
         : progress
     );
@@ -2314,7 +2344,10 @@ export default function HomePage() {
         mode: "work",
         cap: 100,
         active: false,
-        status: "done"
+        status: "done",
+        tick: 0,
+        quipIndex: 0,
+        quip: "Visto? Ho fatto prima io."
       });
       if (!silent) {
         const summary = cached.summary || {};

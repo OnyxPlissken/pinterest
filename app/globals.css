@@ -1006,6 +1006,11 @@ svg {
   line-height: 1.45;
 }
 
+.operation-progress-quip {
+  color: var(--text) !important;
+  font-weight: 700;
+}
+
 .operation-progress em {
   color: var(--text);
   font-size: 12px;
