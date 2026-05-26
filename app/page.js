@@ -103,6 +103,10 @@ const PROGRESS_QUIPS = [
   "Quasi fatto. Probabilmente."
 ];
 
+function getRandomProgressQuip() {
+  return PROGRESS_QUIPS[Math.floor(Math.random() * PROGRESS_QUIPS.length)] || PROGRESS_QUIPS[0];
+}
+
 function Glyph({ name }) {
   const glyphs = {
     play: (
@@ -880,17 +884,11 @@ export default function HomePage() {
         const increment = current.mode === "push" ? 0.6 : 1.2;
         const nextValue = Math.min(cap, Number(current.value || 0) + increment);
         const tick = Number(current.tick || 0) + 1;
-        const quipIndex =
-          tick % 4 === 0
-            ? (Number(current.quipIndex || 0) + 1) % PROGRESS_QUIPS.length
-            : Number(current.quipIndex || 0);
 
         return {
           ...current,
           value: nextValue,
-          tick,
-          quipIndex,
-          quip: PROGRESS_QUIPS[quipIndex]
+          tick
         };
       });
     }, 900);
@@ -1065,8 +1063,6 @@ export default function HomePage() {
   }
 
   function startOperationProgress({ key, label, detail, total = 0, mode = "work", cap = PROGRESS_CAP_DEFAULT }) {
-    const quipIndex = Math.floor(Date.now() / 1000) % PROGRESS_QUIPS.length;
-
     setOperationProgress({
       key,
       label,
@@ -1079,8 +1075,7 @@ export default function HomePage() {
       active: true,
       status: "running",
       tick: 0,
-      quipIndex,
-      quip: PROGRESS_QUIPS[quipIndex]
+      quip: getRandomProgressQuip()
     });
   }
 
@@ -2346,7 +2341,6 @@ export default function HomePage() {
         active: false,
         status: "done",
         tick: 0,
-        quipIndex: 0,
         quip: "Visto? Ho fatto prima io."
       });
       if (!silent) {
